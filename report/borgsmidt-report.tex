@@ -1,0 +1,457 @@
+%!TEX TS-program = xelatex
+%!TEX encoding = UTF-8 Unicode
+
+\documentclass[
+paper=a4,
+oneside,
+fontsize=11pt,
+numbers=noenddot,
+headinclude=false, % Count header as margin
+footinclude=false, % Count footer as margin
+%mpinclude=true, % Include this to leave space for margin notes
+fleqn,             % Equations on left instead of center
+DIV=8
+]{scrartcl}
+
+\usepackage[automark]{scrpage2}
+\makeatletter\@ifclassloaded{scrreprt}{%
+  \pagestyle{scrheadings}%
+  \setlength{\marginparwidth}{7em}%
+  \setlength{\marginparsep}{2em}%
+}\makeatother
+
+\addtolength{\textheight}{35mm}
+
+\usepackage[usenames,dvipsnames]{xcolor} %use color with the command \textcolor{spot}{some text to
+%with your color previously defined}
+\definecolor{seccol}{rgb}{0.6,0,0}
+\definecolor{spot}{rgb}{0.6,0,0}
+\definecolor{boxfill}{rgb}{.96,.97,1}
+\definecolor{halfgray}{gray}{0.55}
+\definecolor{webgreen}{rgb}{0,.5,0}
+\definecolor{royalblue}{cmyk}{0.8, 0.50, 0, 0}
+
+% Graffiti as in GKP's book "Concrete Mathematics"
+% thanks to Lorenzo Pantieri and Enrico Gregorio
+\def\graffito@setup{%
+   \textmpar\footnotesize\setstretch{1}%
+   \parindent=0pt \lineskip=0pt \lineskiplimit=0pt %
+   \tolerance=2000 \hyphenpenalty=300 \exhyphenpenalty=300%
+   \doublehyphendemerits=100000%
+   \finalhyphendemerits=\doublehyphendemerits}
+%\DeclareRobustCommand{\graffito}[1]{\marginpar%
+% [\graffito@setup\raggedleft\hspace{0pt}{#1}]%
+% {\graffito@setup\raggedright\hspace{0pt}{#1}}}
+\let\oldmarginpar\marginpar
+\renewcommand{\marginpar}[1]{\oldmarginpar%
+ [\graffito@setup\raggedleft\hspace{0pt}{#1}]%
+ {\graffito@setup\raggedright\hspace{0pt}{#1}}}
+
+\usepackage{polyglossia}
+\setmainlanguage[variant=american]{english}
+\usepackage{eukdate}   % International date format - Day Month Year
+
+\usepackage{xspace} % Helps eliminate unwanted whitespace after TeX commands
+\usepackage[numbers]{natbib}
+\setcitestyle{aysep={}} % No comma between author and year
+\usepackage[nottoc]{tocbibind}
+ 
+\usepackage{url}
+\usepackage{listings}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{tabularx} % better tables
+\usepackage{textcomp}  % additional characters
+\usepackage{braket}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{graphicx}  % to include graphics
+\usepackage{wrapfig}   % to get nice wrap of figures
+\usepackage{placeins} % For \FloatBarrier to stop floats
+\usepackage{titlesec}
+\usepackage{textcase} % for \MakeTextUppercase 
+\usepackage{mparhack} % get marginpar right
+\usepackage{multicol}
+\usepackage{xltxtra}
+\usepackage{microtype}
+\usepackage{setspace}
+\setstretch{1.12} % Additional space between lines
+\usepackage{relsize}
+\usepackage[printonlyused,smaller]{acronym}
+\newcommand{\acrofont}[1]{\textrm{\textmd{#1}}}
+\renewcommand*{\acsfont}[1]{\textsmaller{\acrofont{#1}}}
+
+% FONTSs & SECTION LAYOUT
+
+\setmainfont[Scale=1.05, Mapping=tex-text, Numbers={Lining, Monospaced}]{Arno Pro}
+\setmonofont[Scale=MatchLowercase]{Menlo}
+\newfontfamily{\textmpar}[Mapping=tex-text, Numbers={OldStyle, Proportional}]{Arno Pro Italic SmText}
+\newfontfamily{\swash}[Mapping=tex-text, Style=Swash, Numbers={OldStyle, Proportional}]{Arno Pro Italic}
+
+% Must load eulervm after loading fonts
+\usepackage[small]{eulervm}   % Use beautiful Euler maths (with main font number glyphs)
+
+% Reset main font to old-style number after loading eulervm
+\setmainfont[Scale=1.1, Mapping=tex-text, Numbers={OldStyle, Proportional}]{Arno Pro}
+
+
+% Special characters
+\newcommand{\oldamp}{\begingroup\addfontfeature{Alternate=2}\&\endgroup}
+
+% Letterspacing
+\usepackage{soul}
+\sodef\allcapsspacing{\upshape}{0.15em}{0.65em}{0.6em}%
+\sodef\lowsmallcapsspacing{\scshape}{0.075em}{0.5em}{0.6em}%
+\DeclareRobustCommand{\spacedallcaps}[1]{\MakeTextUppercase{\allcapsspacing{#1}}}%   
+\DeclareRobustCommand{\spacedlowsmallcaps}[1]{\MakeTextLowercase{\textsc{\lowsmallcapsspacing{#1}}}}%
+
+% Table commands
+\newcommand{\tableheadline}[1]{\multicolumn{1}{c}{\spacedlowsmallcaps{#1}}}
+
+% ********************************************************************                
+% headlines
+% ********************************************************************
+\makeatletter\@ifclassloaded{scrreprt}{%
+\clearscrheadings
+\setheadsepline{0pt}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\enspace\spacedlowsmallcaps{#1}}} 
+\lehead{\mbox{\llap{\small\thepage\kern2em}\headmark\hfil}}
+\rohead{\mbox{\hfil{\headmark}\rlap{\small\kern2em\thepage}}}
+\renewcommand{\headfont}{\small}
+}\makeatother
+
+\makeatletter\@ifclassloaded{scrartcl}{%
+  \def\toc@heading{%
+    \section*{\contentsname}%
+    \@mkboth{\spacedlowsmallcaps{\contentsname}}{\spacedlowsmallcaps{\contentsname}}}
+}\makeatother
+  
+% %*********************************************************
+% Sectioning
+% %*********************************************************
+
+\makeatletter\@ifclassloaded{scrartcl}{%
+% Article sections \FloatBarrier
+  \titleformat{\section}
+    {\relax}{\large\textsc{\MakeTextLowercase{\thesection}}}{1em}{\large\spacedlowsmallcaps}
+% subsections
+\titleformat{\subsection}
+  {\relax}{\textsc{\MakeTextLowercase{\thesubsection}}}{1em}{\normalsize\itshape}        
+}\makeatother
+
+% subsubsections
+\titleformat{\subsubsection}
+  {\relax}{\textsc{\MakeTextLowercase{\thesubsubsection}}}{1em}{\normalsize\itshape}        
+% paragraphs
+\titleformat{\paragraph}[runin]
+  {\normalfont\normalsize}{\theparagraph}{0pt}{\spacedlowsmallcaps}    
+% descriptionlabels
+\renewcommand{\descriptionlabel}[1]{\hspace*{\labelsep}\spacedlowsmallcaps{#1}}
+
+\titlespacing*{\section}{0pt}{1.25\baselineskip}{1\baselineskip} 
+\titlespacing*{\subsection}{0pt}{1.25\baselineskip}{1\baselineskip}
+\titlespacing*{\paragraph}{0pt}{1\baselineskip}{1\baselineskip}
+
+% ********************************************************************
+% footnotes setup   
+% ********************************************************************
+%\RequirePackage{footmisc}  % [bottom] norule para symbol* marginal perpage
+    % KOMA-command, footnotemark not superscripted at the bottom
+    \deffootnote{0em}{0em}{\thefootnotemark\hspace*{.5em}}      
+
+% ********************************************************************                
+% layout of the TOC, LOF and LOT (LOL-workaround see next section)
+% ********************************************************************
+\usepackage[titles]{tocloft}
+% avoid page numbers being right-aligned in fixed-size box              
+\newlength{\newnumberwidth}
+\settowidth{\newnumberwidth}{999} % yields overfull hbox warnings for pages > 999
+\cftsetpnumwidth{\newnumberwidth}
+
+\newcounter{dummy} % necessary for correct hyperlinks (to index, bib, etc.)
+    
+% have the bib neatly positioned after the rest
+\newlength{\beforebibskip}  
+\setlength{\beforebibskip}{0em}
+    
+% space for more than nine chapters
+\newlength{\newchnumberwidth}
+\settowidth{\newchnumberwidth}{.} % <--- tweak here if more space required
+%  \addtolength{\cftchapnumwidth}{\newchnumberwidth}%
+  \addtolength{\cftsecnumwidth}{\newchnumberwidth}
+  \addtolength{\cftsecindent}{\newchnumberwidth}
+  \addtolength{\cftsubsecnumwidth}{\newchnumberwidth}
+  \addtolength{\cftsubsecindent}{2\newchnumberwidth}
+  \addtolength{\cftsubsubsecnumwidth}{\newchnumberwidth}
+	  
+  % % chapters
+  % \renewcommand{\cftchappresnum}{\scshape\MakeTextLowercase}%
+  % \renewcommand{\cftchapfont}{\scshape}%
+  % \renewcommand{\cftchappagefont}{\normalfont}%
+  % \renewcommand{\cftchapleader}{\hspace{1.5em}}% 
+  % \renewcommand{\cftchapafterpnum}{\cftparfillskip}% 
+
+  % sections
+  \renewcommand{\cftsecpresnum}{\small\scshape\MakeTextLowercase}%
+  \renewcommand{\cftsecfont}{\small\scshape\MakeTextLowercase}%
+  \renewcommand{\cftsecpagefont}{\normalfont}%
+  \renewcommand{\cftsecleader}{\hspace{1.5em}}% 
+  \renewcommand{\cftsecafterpnum}{\cftparfillskip}%
+  %\ifthenelse{\boolean{@tocaligned}}{\renewcommand{\cftsecindent}{0em}}{\relax}
+
+  % subsections
+  \renewcommand{\cftsubsecpresnum}{\scshape\MakeTextLowercase}%
+  \renewcommand{\cftsubsecfont}{\normalfont}%
+  \renewcommand{\cftsubsecleader}{\hspace{1.5em}}% 
+  \renewcommand{\cftsubsecafterpnum}{\cftparfillskip}%   
+  %\ifthenelse{\boolean{@tocaligned}}{\renewcommand{\cftsubsecindent}{0em}}{\relax}
+
+  % subsubsections
+  \renewcommand{\cftsubsubsecpresnum}{\scshape\MakeTextLowercase}%
+  \renewcommand{\cftsubsubsecfont}{\normalfont}%
+  \renewcommand{\cftsubsubsecleader}{\hspace{1.5em}}% 
+  \renewcommand{\cftsubsubsecafterpnum}{\cftparfillskip}%   
+  %\ifthenelse{\boolean{@tocaligned}}{\renewcommand{\cftsubsubsecindent}{0em}}{\relax}
+
+  % figures     
+  \renewcommand{\cftfigpresnum}{\scshape\MakeTextLowercase}% 
+  \renewcommand{\cftfigfont}{\normalfont}%                 
+  \renewcommand{\cftfigleader}{\hspace{1.5em}}% 
+  \renewcommand{\cftfigafterpnum}{\cftparfillskip}%
+  \renewcommand{\cftfigpresnum}{}% Don't prefix with 'Figure'
+  \newlength{\figurelabelwidth}
+  \settowidth{\figurelabelwidth}{\cftfigpresnum~9.9}
+  \addtolength{\figurelabelwidth}{1.2em}
+  \cftsetindents{figure}{0em}{\figurelabelwidth}
+  \gappto\captionsenglish{\renewcommand{\listfigurename}{Figures}}
+
+  % tables
+  \renewcommand{\cfttabpresnum}{\scshape\MakeTextLowercase}%
+  \renewcommand{\cfttabfont}{\normalfont}%
+  \renewcommand{\cfttableader}{\hspace{1.5em}}% 
+  \renewcommand{\cfttabafterpnum}{\cftparfillskip}%   
+  \renewcommand{\cfttabpresnum}{}% Don't prefix with 'Table'
+  %\newlength{\tablelabelwidth}
+  %\settowidth{\tablelabelwidth}{\cfttabpresnum~99}
+  %\addtolength{\tablelabelwidth}{2.5em}
+  % \cftsetindents{table}{0em}{\tablelabelwidth}
+  \cftsetindents{table}{0em}{\figurelabelwidth}
+  \gappto\captionsenglish{\renewcommand{\tablename}{Definition}}
+  \gappto\captionsenglish{\renewcommand{\listtablename}{Definitions}}
+
+  % listings
+  \newlistof{listings}{lol}{\lstlistlistingname}%
+  \renewcommand{\cftlistingspresnum}{\scshape\MakeTextLowercase}%
+  \renewcommand{\cftlistingsfont}{\normalfont}%
+  \renewcommand{\cftlistingspresnum}{}% Don't prefix with 'Listing'
+  \renewcommand{\cftlistingspagefont}{\normalfont}%
+  \renewcommand{\cftlistingsleader}{\hspace{1.5em}}%
+  \renewcommand{\cftlistingsafterpnum}{\cftparfillskip}%
+  %\newlength{\listingslabelwidth}%
+  %\settowidth{\listingslabelwidth}{\cftlistingspresnum~99}%
+  %\addtolength{\listingslabelwidth}{}%
+  % \cftsetindents{listings}{0em}{\listingslabelwidth}%
+  \cftsetindents{listings}{0em}{\figurelabelwidth}
+  \makeatletter%
+  \let\l@lstlisting\l@listings%
+  \let\lstlistoflistings\listoflistings%
+  \makeatother
+  % \renewcommand\lstlistingname{Example}
+  % \renewcommand\lstlistlistingname{Examples}
+  % \def\lstlistingautorefname{Example}
+
+  % dirty work-around to get the spacing after the toc/lot/lof-titles right    
+  \AtBeginDocument{\addtocontents{toc}{\protect\vspace{-1em}}}
+
+  \newcommand{\tocEntry}[1]{% for bib, etc.
+    \spacedlowsmallcaps{#1}
+  }
+
+% %    % remove the vertical space between lof/lot entries of different chapters
+% 		\ifthenelse{\boolean{@listsseparated}}{%
+% 		 \PackageWarningNoLine{classicthesis}{Option "listsseparated" deprecated as of version 2.9.}%
+% 		}{\relax}
+% %    \ifthenelse{\boolean{@listsseparated}}{%
+% %        \AtBeginDocument{%
+% %            \addtocontents{lof}{\protect\vspace{-\cftbeforechapskip}}%
+% %            \addtocontents{lot}{\protect\vspace{-\cftbeforechapskip}}%
+% %            \ifthenelse{\boolean{@listings}}%        
+% %    				{%
+% %             	\addtocontents{lol}{\protect\vspace{-\cftbeforechapskip}}%
+% %            }{\relax}%
+% %        }%
+% %    }{%
+%         \DeclareRobustCommand*{\deactivateaddvspace}{\let\addvspace\@gobble}% 
+%         \AtBeginDocument{%      
+%             \addtocontents{lof}{\deactivateaddvspace}% 
+%             \addtocontents{lot}{\deactivateaddvspace}%
+%     				\ifthenelse{\boolean{@listings}}% 
+%     				{%
+%              	\addtocontents{lol}{\deactivateaddvspace}%
+%             }{\relax}%                  
+%         }%
+% %    } 
+   
+% ********************************************************************
+% Hyperreferences setup
+%*******************************************************
+\usepackage{hyperref}
+\hypersetup{%
+    colorlinks=true, linktocpage=true, pdfstartpage=3, pdfstartview=FitV,%
+    % uncomment the following line if you want to have black links (e.g., for printing)
+    %colorlinks=false, linktocpage=false, pdfborder={0 0 0}, pdfstartpage=3, pdfstartview=FitV,% 
+    breaklinks=true, pdfpagemode=UseNone, pageanchor=true, pdfpagemode=UseOutlines,%
+    plainpages=false, bookmarksnumbered, bookmarksopen=true, bookmarksopenlevel=1,%
+    hypertexnames=true, pdfhighlight=/O,%hyperfootnotes=true,%nesting=true,%frenchlinks,%
+    urlcolor=RoyalBlue, linkcolor=spot, citecolor=spot, %pagecolor=RoyalBlue,%
+    %urlcolor=Black, linkcolor=Black, citecolor=Black, %pagecolor=Black,%
+    pdftitle={Advanced Programming 2013 Exam Report},%the title
+    pdfauthor={Rasmus Borgsmidt},%your name
+    pdfsubject={},%
+    pdfkeywords={},%
+    pdfcreator={XeLaTeX},%
+    pdfproducer={XeLaTeX}%
+}
+
+% ******************************************************
+% Listings setup
+%*******************************************************
+\lstset{
+  basicstyle=\ttfamily\small,
+  commentstyle=\color{webgreen}\ttfamily,
+  numbers=left,
+  numberstyle=\ttfamily\scriptsize,
+  numbersep=8pt,
+  showstringspaces=false,
+  breaklines=true,
+  backgroundcolor=\color{boxfill},
+  frame=tb,
+  framerule=\heavyrulewidth, % defined in the booktabs package
+  belowcaptionskip=.75\baselineskip
+}
+
+% Get single spacing in listings
+\let\oldlst\lstlisting
+\def\lstlisting{\par\setstretch{0.8}\oldlst}
+
+% Use regular - instead of dash in listings
+\makeatletter
+\lst@CCPutMacro\lst@ProcessOther {"2D}{\lst@ttfamily{-{}}{-{}}}
+\@empty\z@\@empty
+\makeatother
+
+
+% Disable single lines at the start of a paragraph (Schusterjungen)
+\clubpenalty = 10000
+% Disable single lines at the end of a paragraph (Hurenkinder)
+\widowpenalty = 10000 
+\displaywidowpenalty = 10000 % formulas
+
+
+\begin{document}
+
+\title{\textcolor{spot}{\rmfamily\mdseries\spacedlowsmallcaps{Exam Report}}}
+\subtitle{\rmfamily\mdseries\itshape\normalsize{Advanced Programming 2013}}
+\author{\large Rasmus Borgsmidt}
+\date{November 7, 2013}
+\maketitle
+\pdfbookmark[1]{\contentsname}{tableofcontents}
+\setcounter{tocdepth}{1} % <-- 2 includes up to subsections in the ToC
+\manualmark
+\vspace{-30pt}\tableofcontents
+\vspace{30pt}
+
+\fontdimen2\font=1.25\fontdimen2\font% interword space
+\fontdimen3\font=1.25\fontdimen3\font% interword stretch
+\fontdimen4\font=\fontdimen4\font% interword shrink
+
+\section*{Acronyms}
+\begin{acronym}[DRY]
+  \acro{LALR}[\acrofont{LALR}]{Look-Ahead Left-to-Right}
+\end{acronym}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+\section{Salsa Language Parser}
+
+\subsection{Choice of Parser Library}
+
+\subsection{Grammar Transformations}
+
+
+\section{Salsa Language Interpreter}
+
+\section{Atomic Transaction Server}
+
+\section{Conclusion}
+
+
+\bibliographystyle{plainnat}
+\bibliography{borgsmidt-report}
+
+\appendix
+
+\section{Salsa Grammar}
+
+\begin{table}[h]
+  \centering
+  \caption{Syntax of target language}\label{grammar}
+  \begin{tabularx}{\textwidth}{rcX} \toprule
+    {\em Program}    & $::=$ & {\em DefComs}\\
+    {\em DefComs}    & $::=$ & {\em DefCom}\\
+               & $|$   & {\em DefCom} {\em DefComs}\\
+    {\em DefCom}     & $::=$ & {\em Command}\\
+               & $|$   & {\em Definition}\\
+    {\em Definition} & $::=$ & {\tt 'viewdef'} {\em VIdent} {\em Expr} {\em Expr}\\
+               & $|$   & {\tt 'rectangle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
+               & $|$   & {\tt 'circle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
+               & $|$   & {\tt 'view'} {\em VIdent}\\
+               & $|$   & {\tt 'group'} {\em VIdent} {\tt '['} {\em VIdents} {\tt ']'}\\
+    {\em Command}    & $::=$ & {\em SIdents} {\tt '->'} {\em Pos}\\
+               & $|$   & {\em Command} {\tt '@'} {\em VIdent}\\
+               & $|$   & {\em Command} {\tt '||'} {\em Command}\\
+               & $|$   & {\tt '\{'} {\em Command} {\tt '\}'}\\
+    {\em VIdents}    & $::=$ & {\em VIdent}\\
+               & $|$   & {\em VIdent} {\em VIdents}\\
+    {\em SIdents}    & $::=$ & {\em SIdent}\\
+               & $|$   & {\em SIdent} {\em SIdents}\\
+    {\em Pos}        & $::=$ & {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
+               & $|$   & {\tt '+'} {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
+    {\em Expr}       & $::=$ & {\em Prim}\\
+               & $|$   & {\em Expr} {\tt '+'} {\em Prim}\\
+               & $|$   & {\em Expr} {\tt '-'} {\em Prim}\\
+    {\em Prim}       & $::=$ & integer\\
+               & $|$   & {\em SIdent} {\tt '.'} {\tt 'x'}\\
+               & $|$   & {\em SIdent} {\tt '.'} {\tt 'y'}\\
+               & $|$   & {\tt '('} {\em Expr} {\tt ')'}\\
+    {\em Colour}     & $::=$ & {\tt 'blue'} $|$ {\tt 'plum'} $|$ {\tt 'red'} $|$ {\tt 'green'} $|$ {\tt 'orange'}\\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Lexical Specification}
+
+\section{Submitted Files}
+\label{sec:submitted-files}
+
+Sample programs; example \ref{lst:compsample} shows how to compile and
+run a sample program.
+
+\begin{lstlisting}[caption=File tree under {\tt src/}, label=lst:filetree]
+.
+|-- examples
+|   |-- id.class
+|   |-- id.ial
+|   |-- id.java
+|   |-- id2.class
+|   |-- id2.ial
+|   |-- id2.java
+|   |-- optimized.ial
+|   |-- optimized.java
+|   |-- plus.class
+|   |-- plus.ial
+\end{lstlisting}
+
+\end{document}
