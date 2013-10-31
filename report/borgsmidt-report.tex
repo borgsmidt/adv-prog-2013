@@ -87,7 +87,7 @@ DIV=8
 \setmainfont[Scale=1.05, Mapping=tex-text, Numbers={Lining, Monospaced}]{Arno Pro}
 \setmonofont[Scale=MatchLowercase]{Menlo}
 \newfontfamily{\textmpar}[Mapping=tex-text, Numbers={OldStyle, Proportional}]{Arno Pro Italic SmText}
-\newfontfamily{\swash}[Mapping=tex-text, Style=Swash, Numbers={OldStyle, Proportional}]{Arno Pro Italic}
+\newfontfamily{\regnum}[Mapping=tex-text, Numbers={Lining, Monospaced}]{Arno Pro}
 
 % Must load eulervm after loading fonts
 \usepackage[small]{eulervm}   % Use beautiful Euler maths (with main font number glyphs)
@@ -237,8 +237,8 @@ DIV=8
   %\addtolength{\tablelabelwidth}{2.5em}
   % \cftsetindents{table}{0em}{\tablelabelwidth}
   \cftsetindents{table}{0em}{\figurelabelwidth}
-  \gappto\captionsenglish{\renewcommand{\tablename}{Definition}}
-  \gappto\captionsenglish{\renewcommand{\listtablename}{Definitions}}
+%  \gappto\captionsenglish{\renewcommand{\tablename}{Definition}}
+%  \gappto\captionsenglish{\renewcommand{\listtablename}{Definitions}}
 
   % listings
   \newlistof{listings}{lol}{\lstlistlistingname}%
@@ -354,7 +354,7 @@ DIV=8
 \title{\textcolor{spot}{\rmfamily\mdseries\spacedlowsmallcaps{Exam Report}}}
 \subtitle{\rmfamily\mdseries\itshape\normalsize{Advanced Programming 2013}}
 \author{\large Rasmus Borgsmidt}
-\date{November 7, 2013}
+\date{}
 \maketitle
 \pdfbookmark[1]{\contentsname}{tableofcontents}
 \setcounter{tocdepth}{1} % <-- 2 includes up to subsections in the ToC
@@ -380,6 +380,26 @@ DIV=8
 
 \subsection{Grammar Transformations}
 
+Assumptions: || is left-associative.
+
+{\tt '+'} and {\tt '-'} have the same precedence for expressions
+
+As outlined by \citet[p.~69]{mogensen2011}.
+
+\begin{enumerate}
+\item Eliminate ambiguity
+\item Eliminate left-recursion
+\item Perform left-factorization where required
+\end{enumerate}
+
+Note: And it is only required when several productions {\em for the same
+  nonterminal} begin with the same sequence of symbols; for example, it is not a
+problem that both {\em Pos} and {\em Prim} have a production that begins with
+{\tt '('}, as long as they have only one each.
+
+The resulting grammar makes it explicit that {\tt '@'} has higher precedence
+than {\tt '||'}. In other words, it makes it impossible to derive the wrong
+parse tree from a given input.
 
 \section{Salsa Language Interpreter}
 
@@ -396,12 +416,13 @@ DIV=8
 \section{Salsa Grammar}
 
 \begin{table}[h]
-  \centering
+  \centering\regnum
   \caption{Syntax of target language}\label{grammar}
   \begin{tabularx}{\textwidth}{rcX} \toprule
     {\em Program}    & $::=$ & {\em DefComs}\\
-    {\em DefComs}    & $::=$ & {\em DefCom}\\
-               & $|$   & {\em DefCom} {\em DefComs}\\
+    {\em DefComs}    & $::=$ & {\em DefCom} {\em DefComs$_{*}$}\\
+    {\em DefComs$_{*}$}   & $::=$ & {\em DefCom} {\em DefComs$_{*}$}\\
+               & $|$   & $\epsilon$\\
     {\em DefCom}     & $::=$ & {\em Command}\\
                & $|$   & {\em Definition}\\
     {\em Definition} & $::=$ & {\tt 'viewdef'} {\em VIdent} {\em Expr} {\em Expr}\\
@@ -409,23 +430,31 @@ DIV=8
                & $|$   & {\tt 'circle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
                & $|$   & {\tt 'view'} {\em VIdent}\\
                & $|$   & {\tt 'group'} {\em VIdent} {\tt '['} {\em VIdents} {\tt ']'}\\
-    {\em Command}    & $::=$ & {\em SIdents} {\tt '->'} {\em Pos}\\
-               & $|$   & {\em Command} {\tt '@'} {\em VIdent}\\
-               & $|$   & {\em Command} {\tt '||'} {\em Command}\\
+    {\em Command}    & $::=$ & {\em Command1} {\em Command$_{*}$}\\
+    {\em Command$_{*}$}    & $::=$ & {\tt '||'} {\em Command1} {\em Command$_{*}$}\\
+               & $|$ & $\epsilon$ \\
+    {\em Command1}    & $::=$ & {\em Command2} {\em Command1$_{*}$}\\
+    {\em Command1$_{*}$}    & $::=$ & {\tt '@'} {\em VIdent} {\em Command1$_{*}$}\\
+               & $|$ & $\epsilon$ \\
+    {\em Command2}    & $::=$ & {\em SIdents} {\tt '->'} {\em Pos}\\
                & $|$   & {\tt '\{'} {\em Command} {\tt '\}'}\\
-    {\em VIdents}    & $::=$ & {\em VIdent}\\
-               & $|$   & {\em VIdent} {\em VIdents}\\
-    {\em SIdents}    & $::=$ & {\em SIdent}\\
-               & $|$   & {\em SIdent} {\em SIdents}\\
+
+    {\em VIdents}    & $::=$ & {\em VIdent} {\em VIdents$_{*}$}\\
+    {\em VIdents$_{*}$}    & $::=$ & {\em VIdent} {\em VIdents$_{*}$}\\
+               & $|$   & $\epsilon$\\
+    {\em SIdents}    & $::=$ & {\em SIdent} {\em SIdents$_{*}$}\\
+    {\em SIdents$_{*}$}    & $::=$ & {\em SIdent} {\em SIdents$_{*}$}\\
+               & $|$   & $\epsilon$\\
     {\em Pos}        & $::=$ & {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
                & $|$   & {\tt '+'} {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
-    {\em Expr}       & $::=$ & {\em Prim}\\
-               & $|$   & {\em Expr} {\tt '+'} {\em Prim}\\
-               & $|$   & {\em Expr} {\tt '-'} {\em Prim}\\
-    {\em Prim}       & $::=$ & integer\\
-               & $|$   & {\em SIdent} {\tt '.'} {\tt 'x'}\\
-               & $|$   & {\em SIdent} {\tt '.'} {\tt 'y'}\\
+    {\em Expr}       & $::=$ & {\em Prim} {\em Expr$_{*}$}\\
+    {\em Expr$_{*}$}       & $::=$ & {\tt '+'} {\em Prim} {\em Expr$_{*}$}\\
+               & $|$   & {\tt '-'} {\em Prim} {\em Expr$_{*}$}\\
+               & $|$   & $\epsilon$\\
+    {\em Prim}       & $::=$ & {\em integer}\\
+               & $|$   & {\em SIdent} {\tt '.'} {\em Coord}\\
                & $|$   & {\tt '('} {\em Expr} {\tt ')'}\\
+    {\em Coord}       & $::=$ & {\tt 'x'} $|$ {\tt 'y'}\\
     {\em Colour}     & $::=$ & {\tt 'blue'} $|$ {\tt 'plum'} $|$ {\tt 'red'} $|$ {\tt 'green'} $|$ {\tt 'orange'}\\
     \bottomrule
   \end{tabularx}

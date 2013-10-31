@@ -6,6 +6,8 @@ cabal-dev
 *.chs.h
 .virthualenv
 *.aux
+*.bbl
+*.blg
 *.log
 *.out
 *.toc
