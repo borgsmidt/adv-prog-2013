@@ -1,0 +1,6 @@
+viewdef Default 400 400
+rectangle box 10 400 20 20 green
+box -> (10, 200)
+box -> +(100, 0)
+box -> (110,400)
+box -> +(0-100, 0)

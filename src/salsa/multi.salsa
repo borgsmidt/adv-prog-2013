@@ -1,0 +1,12 @@
+viewdef One 500 500
+viewdef Two 400 400
+group Both [One Two]
+view Both
+rectangle larry 10 350 20 20 blue
+rectangle fawn 300 350 15 25 plum
+
+view Two
+larry -> (300, 350) || fawn -> (10,350)
+
+view Both
+larry fawn -> +(0, 0 - 300)
