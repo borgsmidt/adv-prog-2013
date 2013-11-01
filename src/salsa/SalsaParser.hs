@@ -3,7 +3,14 @@
 -- To be used at the exam for Advanced Programming, B1-2013
 --
 
-module SalsaParser where
+module SalsaParser 
+    (
+       Program
+     , Error
+     , parseString
+--     , parseFile
+     , reserved
+    ) where
 
 import SalsaAst
 import SimpleParse

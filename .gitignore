@@ -12,3 +12,4 @@ cabal-dev
 *.out
 *.toc
 *~
+*Test
