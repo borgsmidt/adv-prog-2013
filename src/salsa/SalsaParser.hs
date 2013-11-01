@@ -14,17 +14,22 @@ module SalsaParser
 
 import SalsaAst
 import SimpleParse
-import Data.Char (isLetter, isDigit)
+import Data.Char (isLetter, isDigit, isUpper, isLower)
 
 -- A string is used to signal an error
 type Error = String
 
+-- Reserved words
 reserved :: [String]
-reserved = ["viewdef", "rectangle", "circle", "view", "group"]
+reserved = ["viewdef", "rectangle", "circle", "view", "group",
+            "blue", "plum", "red", "green", "orange"]
+isReserved :: String -> Bool
+isReserved w = w `elem` reserved
 
 -- top-level parsing function that returns a program, or a string in case of failure
 parseString :: String -> Either Error Program
 parseString input = let res = parse (do r <- program
+                                        spaces -- allows trailing whitespace in a program
                                         eof
                                         return r) input
                     in case res of
@@ -78,7 +83,6 @@ def = (do symbol "viewdef"
               e0 <- expr
               e1 <- expr
               e2 <- expr
-              e3 <- expr
               c <- col
               return (Circle s e0 e1 e2 c))
       <|> (do symbol "view"
@@ -110,7 +114,7 @@ com1 = com2 >>= com1_
 com1_ :: Command -> Parser Command
 com1_ c = (do schar '@'
               v <- vIdent
-              com_ (At c v))
+              com1_ (At c v))
           <|> return c
 
 -- Command2 parser
@@ -132,7 +136,8 @@ vIdents = do v <- vIdent
 
 -- VIdents* parser
 vIdents_ :: Parser [Ident]
-vIdents_ = (do v <- vIdent
+vIdents_ = (do many1 space -- identifiers must be separated by whitespace
+               v <- vIdent
                vs <- vIdents_
                return (v:vs))
            <|> return []
@@ -145,7 +150,8 @@ sIdents = do s <- sIdent
 
 -- SIdents* parser
 sIdents_ :: Parser [Ident]
-sIdents_ = (do s <- sIdent
+sIdents_ = (do many1 space -- identifiers must be separated by whitespace
+               s <- sIdent
                ss <- sIdents_
                return (s:ss))
            <|> return []
@@ -207,33 +213,25 @@ col = (symbol "blue" >> return Blue)
       <|> (symbol "green" >> return Green)
       <|> (symbol "orange" >> return Orange)
 
+-- integers
+integer :: Parser Integer
+integer = token (do intstr <- many1 $ satisfy isDigit
+                    return (read intstr))
+
 -- identifiers
 vIdent :: Parser Ident
-vIdent = token (do c <- letter
-                   cs <- letdigs
-                   if (c:cs) `elem` reserved then reject
-                   else return (c:cs))
-    where letter = satisfy isLetter
-          letdigs = many (letter <|> num <|> char '_')
-          num = satisfy isDigit
-          reserved = ["where", "refv", "refh", "rot", "width", "height"]
+vIdent = ident isUpper
 
 sIdent :: Parser Ident
-sIdent = token (do c <- letter
-                   cs <- letdigs
-                   if (c:cs) `elem` reserved then reject
-                   else return (c:cs))
-    where letter = satisfy isLetter
-          letdigs = many (letter <|> num <|> char '_')
-          num = satisfy isDigit
-          reserved = ["where", "refv", "refh", "rot", "width", "height"]
+sIdent = ident isLower
 
-integer :: Parser Integer
-integer = token (do intpart <- digits
-                    decsep <- string "."
-                    decpart <- digits
-                    return (read (intpart ++ decsep ++ decpart)))
-          <|> token (do intpart <- digits
-                        return (read intpart))
-    where digits = many1 num
-          num = satisfy isDigit
+ident :: (Char -> Bool) -> Parser Ident
+ident leading = token (do c <- satisfy leading
+                          cs <- letdigs
+                          if (c:cs) `elem` reserved
+                          then reject
+                          else return (c:cs))
+    where letter = satisfy isLetter
+          digit = satisfy isDigit
+          letdigs = many (letter <|> digit <|> char '_')
+

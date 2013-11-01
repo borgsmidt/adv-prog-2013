@@ -402,6 +402,20 @@ The resulting grammar makes it explicit that {\tt '@'} has higher precedence
 than {\tt '||'}. In other words, it makes it impossible to derive the wrong
 parse tree from a given input.
 
+\subsection{Testing}
+\label{sec:testing}
+
+Do not want to expose functions from module in order to test. But still come up
+with strategy for somewhat orthogonal testing.
+
+\subsection{Assessment}
+\label{sec:assessment}
+
+Allow trailing whitespace
+SIdents and VIdents parsers could be parameterized and combined.
+
+Comment on that it is particularly tricky to do identifiers separated by space.
+
 \section{Salsa Language Interpreter}
 
 \section{Atomic Transaction Server}
