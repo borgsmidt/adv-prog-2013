@@ -380,6 +380,11 @@ DIV=8
 
 \subsection{Grammar Transformations}
 
+Goal: to make the grammar LL(1)
+
+Emphasis in correctness. Code can be improved for efficiency later. Fx.\ using
+many1 etc.
+
 Assumptions: || is left-associative. The original grammar does not specify this,
 This was chosen because of symmetri with {\tt '@'}.
 
@@ -411,12 +416,43 @@ with strategy for somewhat orthogonal testing.
 \subsection{Assessment}
 \label{sec:assessment}
 
+I believe this is a complete and correct solution to question 1.
+
 Allow trailing whitespace
 SIdents and VIdents parsers could be parameterized and combined.
 
 Comment on that it is particularly tricky to do identifiers separated by space.
 
+extensive test suite
+machine-like translation from grammar
+well-chosen grammar transformations
+
 \section{Salsa Language Interpreter}
+
+A context comprises an environment and a state; the environment specifies views,
+shapes and other definitions, the state specifies the position of each shape on
+the views. In that sense, a given state specifies a {\em key frame} and the
+transition from each key frame to the next is specified by the difference
+between one state and the next.
+
+Apart from possible implications on ordering of graphics instructions, will it
+impact the resulting Animation if our interpreter executes concurrent commands
+in parallel or sequentially?
+
+I don't think so, given the 
+
+If views are defined later in the animation, they just stay blank until
+something happens on them.
+
+Comment on the point of the separate SalsaCommand monad, perhaps to make it
+clear that commands cannot impact the environment.
+
+SalsaCommand is responsible for generating frames -- why else would the frame
+rate be required in the context?
+
+Explain why this is the case (concurrent execution - other reasons?):
+{- NOTE: Two sequenced SalsaCommands are deliberately executed in the same context,
+ - the state is not updated before the second execution -}
 
 \section{Atomic Transaction Server}
 

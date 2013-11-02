@@ -89,6 +89,8 @@ main = do putStrLn "\n*** Checking Colour ***"
                                                                             (Move ["c"] (Abs (Const 0) (Const 0))))
           putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)@V" (Par (Move ["a"] (Abs (Const 0) (Const 0)))
                                                                     (At (Move ["b"] (Abs (Const 0) (Const 0))) "V"))
+          putStrLn $ checkCommand run "{a->(0, 0)||b->(0, 0)}@V" (At (Par (Move ["a"] (Abs (Const 0) (Const 0)))
+                                                                          (Move ["b"] (Abs (Const 0) (Const 0)))) "V")
           putStrLn $ checkCommand run "{{{a->(0, 0)}}}" (Move ["a"] (Abs (Const 0) (Const 0)))
 
           putStrLn "\n*** Checking Definition ***"
