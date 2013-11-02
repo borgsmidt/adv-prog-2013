@@ -16,29 +16,20 @@ interpolate :: Integer -> Position -> Position -> [Position]
 -- TODO
 interpolate rate fromPos toPos = [toPos]
 
-type ViewDef = (Ident, Integer, Integer)
-type GroupDef = (Ident, [Ident])
-data Shape = Rectangle {
+type View = (Ident, Integer, Integer)
+type Group = (Ident, [Ident])
+data Shape = Rect {
       llx :: Integer
     , lly :: Integer
     , width :: Integer
     , height :: Integer
     , col :: Colour
-    } | Circle {
+    } | Circ {
       x :: Integer
     , y :: Integer
     , r :: Integer
     , col :: Colour
     } deriving (Show, Eq)
-
-data Environment = Environment {
-      views :: [ViewDef]
-    , groups :: [GroupDef]
-    , shapes :: M.Map Ident Shape
-    , definitions :: M.Map Ident Definition
-    , activeViews :: [Ident]
-    , frameRate :: Integer
-    }
 
 data State = State {
       positions :: M.Map (Ident, Ident) Pos
@@ -46,29 +37,45 @@ data State = State {
     }
 
 data Context = Context {
-      environment :: Environment
+      views :: M.Map Ident View
+    , shapes :: M.Map Ident Shape
+    , groups :: M.Map Ident [Ident]
+    , activeViews :: [Ident]
+    , frameRate :: Integer
     , state :: State
     }
 
-baseEnvironment = Environment [] [] M.empty M.empty [] 1
+-- TODO Clean this up
 baseState = State M.empty []
-baseContext = Context baseEnvironment baseState
+baseContext = Context M.empty M.empty M.empty [] 1 baseState
 
 -- Changes the context locally for the command
 local :: (Context -> Context) -> SalsaCommand a -> SalsaCommand a
 local f m = SalsaCommand $ \context -> runSC m (f context)
 
-setActive :: Ident -> Context -> Context
--- TODO
-setActive ident context = context
-
 animation :: Context -> Animation
 -- TODO Needs to merge frame sets
-animation context = ([], [])
+animation context = (M.elems $ views context, [])
 
 moveShapes :: Context -> [Ident] -> Pos -> State
 -- TODO
 moveShapes context idents pos = state context
+
+addView :: Ident -> View -> Context -> Context
+addView ident view context = let newViews = M.insert ident view (views context)
+                             in context { views = newViews }
+
+addShape :: Ident -> Shape -> Context -> Context
+addShape ident shape context = let newShapes = M.insert ident shape (shapes context)
+                               in context { shapes = newShapes }
+
+addGroup :: Ident -> [Ident] -> Context -> Context
+addGroup ident idents context = let newGroups = M.insert ident idents (groups context)
+                                in context { groups = newGroups }
+
+setActive :: Ident -> Context -> Context
+-- TODO
+setActive ident context = context
 
 -- When talking about this type, point out that no error handling is necessary
 -- This type reflects that running a command cannot update the environment,
@@ -129,15 +136,37 @@ generate graphics instructions
 eval :: Context -> Expr -> Integer
 eval context expr = 42
 
-liftC :: SalsaCommand a -> Salsa a
-liftC scom = Salsa $ \context -> let (x, st) = runSC scom context
-                                 in (x, context { state = st })
-                
+colorName :: Colour -> String
+colorName Blue = "blue"
+colorName Plum = "plum"
+colorName Red = "red"
+colorName Green = "green"
+colorName Orange = "orange"
 
+liftC :: SalsaCommand a -> Salsa a
+liftC sc = Salsa $ \context -> let (x, st) = runSC sc context
+                               in (x, context { state = st })
 
 definition :: Definition -> Salsa ()
--- TODO
-definition def = return ()
+definition (Viewdef ident wExpr hExpr) =
+    Salsa $ \context -> let width = eval context wExpr
+                            height = eval context hExpr
+                        in ((), addView ident (ident, width, height) context)
+definition (Rectangle ident llxExpr llyExpr wExpr hExpr col) =
+    Salsa $ \context -> let  llx = eval context llxExpr
+                             lly = eval context llyExpr
+                             width = eval context wExpr
+                             height = eval context hExpr
+                             rect = Rect llx lly width height col
+                        in ((), addShape ident rect context)
+definition (Circle ident xExpr yExpr rExpr col) =
+    Salsa $ \context -> let  x = eval context xExpr
+                             y = eval context yExpr
+                             r = eval context rExpr
+                             circle = Circ x y r col
+                        in ((), addShape ident circle context)
+definition (View ident) = Salsa $ \context -> ((), setActive ident context)
+definition (Group ident idents) = Salsa $ \context -> ((), addGroup ident idents context)
 
 defCom :: DefCom -> Salsa ()
 defCom (Def def) = definition def

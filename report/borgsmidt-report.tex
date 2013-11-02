@@ -454,6 +454,9 @@ Explain why this is the case (concurrent execution - other reasons?):
 {- NOTE: Two sequenced SalsaCommands are deliberately executed in the same context,
  - the state is not updated before the second execution -}
 
+Unnecessary to nest environment inside context -- as long as commands can only
+amend state.
+
 \section{Atomic Transaction Server}
 
 \section{Conclusion}
