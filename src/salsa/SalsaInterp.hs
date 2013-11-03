@@ -9,6 +9,7 @@ where
 
 import SalsaAst
 import Gpx
+import Data.List((\\))
 import qualified Data.Map as M
 
 type Position = (Integer, Integer)
@@ -16,66 +17,128 @@ interpolate :: Integer -> Position -> Position -> [Position]
 -- TODO
 interpolate rate fromPos toPos = [toPos]
 
-type View = (Ident, Integer, Integer)
-type Group = (Ident, [Ident])
 data Shape = Rect {
       llx :: Integer
     , lly :: Integer
     , width :: Integer
     , height :: Integer
     , col :: Colour
+    , vs :: [ViewT]
     } | Circ {
       x :: Integer
     , y :: Integer
     , r :: Integer
     , col :: Colour
+    , vs :: [ViewT]
     } deriving (Show, Eq)
 
+type FrameSets = [[Frame]]
 data State = State {
       positions :: M.Map (Ident, Ident) Pos
-    , frameSets :: [[Frame]]
+    , frameSets :: FrameSets
     }
 
+-- 'T' suffix is just to distinguish from Salsa AST constructors
+type ViewT = (Ident, Integer, Integer)
+type GroupT = (Ident, [ViewT])
+type ViewMap = M.Map Ident ViewT
+type ShapeMap = M.Map Ident Shape
+type GroupMap = M.Map Ident GroupT
 data Context = Context {
-      views :: M.Map Ident View
-    , shapes :: M.Map Ident Shape
-    , groups :: M.Map Ident [Ident]
-    , activeViews :: [Ident]
+      views :: ViewMap
+    , shapes :: ShapeMap
+    , groups :: GroupMap
+    , activeViews :: [ViewT]
     , frameRate :: Integer
     , state :: State
     }
 
+blankFrame = []
 -- TODO Clean this up
-baseState = State M.empty []
+baseState = State M.empty [[blankFrame]]
 baseContext = Context M.empty M.empty M.empty [] 1 baseState
+
+updateViews :: (ViewMap -> ViewMap) -> Context -> Context
+updateViews f = \context -> context { views = f (views context) }
+
+updateShapes :: (ShapeMap -> ShapeMap) -> Context -> Context
+updateShapes f = \context -> context { shapes = f (shapes context) }
+
+updateGroups :: (GroupMap -> GroupMap) -> Context -> Context
+updateGroups f = \context -> context { groups = f (groups context) }
+
+updateState :: (State -> State) -> Context -> Context
+updateState f = \context -> context { state = f (state context) }
+
+updateFrameSets :: (FrameSets -> FrameSets) -> State -> State
+updateFrameSets f = \state -> state { frameSets = f (frameSets state) }
+
+-- the key frame of a given context is always the latest frame in the latest frame set
+-- and a context always has at least a key frame, so we can assume it is there when
+-- pattern matching
+updateKeyFrame :: (Frame -> Frame) -> FrameSets -> FrameSets
+updateKeyFrame f = \((kf:set):sets) -> ((f kf):set):sets
 
 -- Changes the context locally for the command
 local :: (Context -> Context) -> SalsaCommand a -> SalsaCommand a
 local f m = SalsaCommand $ \context -> runSC m (f context)
 
 animation :: Context -> Animation
--- TODO Needs to merge frame sets
-animation context = (M.elems $ views context, [])
+-- TODO Needs to merge frame sets, reverse, etc.
+animation context =
+    let vs = M.elems $ views context
+        fs = reverse . concat . frameSets $ state context
+    in (vs , fs)
 
 moveShapes :: Context -> [Ident] -> Pos -> State
 -- TODO
 moveShapes context idents pos = state context
-
-addView :: Ident -> View -> Context -> Context
-addView ident view context = let newViews = M.insert ident view (views context)
-                             in context { views = newViews }
+{-get current positions for idents
+calculate new positions
+get positions for other shapes
+do interpolation
+generate graphics instructions
+-}
+addView :: Ident -> ViewT -> Context -> Context
+addView ident view context =
+    setActive ident $ updateViews (M.insert ident view) context
 
 addShape :: Ident -> Shape -> Context -> Context
-addShape ident shape context = let newShapes = M.insert ident shape (shapes context)
-                               in context { shapes = newShapes }
+addShape ident shape context =
+    writeShapeToKeyFrame shape $ updateShapes (M.insert ident shape) context
 
 addGroup :: Ident -> [Ident] -> Context -> Context
-addGroup ident idents context = let newGroups = M.insert ident idents (groups context)
-                                in context { groups = newGroups }
+addGroup ident idents context =
+    case sequence $ map (flip M.lookup (views context)) idents of
+      Nothing -> error $ "undefined view in: " ++ show idents
+      Just vs -> updateGroups (M.insert ident (ident, vs)) context
 
 setActive :: Ident -> Context -> Context
--- TODO
-setActive ident context = context
+setActive ident context =
+    case M.lookup ident (views context) of
+      Just view -> context { activeViews = [view] }
+      Nothing -> case M.lookup ident (groups context) of
+                   Just (_, views) -> context { activeViews = views }
+                   Nothing -> error $ "undefined view or group: " ++ show ident
+
+writeShapeToKeyFrame :: Shape -> Context -> Context
+writeShapeToKeyFrame shape context =
+    let views = activeViews context
+        f = writeShapeToViews shape views
+    in updateState (updateFrameSets $ updateKeyFrame f) context
+
+writeShapeToViews :: Shape -> [ViewT] -> Frame -> Frame
+writeShapeToViews shape views frame =
+    if null $ views \\ vs shape
+    then foldr (writeShape shape) frame views
+    else error $ "shape not defined on all views: " ++ show views
+
+writeShape :: Shape -> ViewT -> Frame -> Frame
+writeShape (Rect llx lly width height col _) (vname,_,_) frame =
+    (DrawRect llx lly width height vname (colorName col)):frame
+writeShape (Circ x y r col _) (vname,_,_) frame =
+    (DrawCirc x y r vname (colorName col)):frame
+
 
 -- When talking about this type, point out that no error handling is necessary
 -- This type reflects that running a command cannot update the environment,
@@ -119,11 +182,6 @@ mergeTwoFrameSets x =
 [[0, 0, 0], [1, 1, 1]]
 [[2, 2, 2], [2, 2, 2]]
 
-get current positions for idents
-calculate new positions
-get positions for other shapes
-do interpolation
-generate graphics instructions
 
 
  env = environment context
@@ -157,16 +215,20 @@ definition (Rectangle ident llxExpr llyExpr wExpr hExpr col) =
                              lly = eval context llyExpr
                              width = eval context wExpr
                              height = eval context hExpr
-                             rect = Rect llx lly width height col
+                             vs = activeViews context
+                             rect = Rect llx lly width height col vs
                         in ((), addShape ident rect context)
 definition (Circle ident xExpr yExpr rExpr col) =
     Salsa $ \context -> let  x = eval context xExpr
                              y = eval context yExpr
                              r = eval context rExpr
-                             circle = Circ x y r col
+                             vs = activeViews context
+                             circle = Circ x y r col vs
                         in ((), addShape ident circle context)
-definition (View ident) = Salsa $ \context -> ((), setActive ident context)
-definition (Group ident idents) = Salsa $ \context -> ((), addGroup ident idents context)
+definition (View ident) =
+    Salsa $ \context -> ((), setActive ident context)
+definition (Group ident idents) =
+    Salsa $ \context -> ((), addGroup ident idents context)
 
 defCom :: DefCom -> Salsa ()
 defCom (Def def) = definition def

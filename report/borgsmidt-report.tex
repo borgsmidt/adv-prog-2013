@@ -457,6 +457,12 @@ Explain why this is the case (concurrent execution - other reasons?):
 Unnecessary to nest environment inside context -- as long as commands can only
 amend state.
 
+In a blank context, there should be a blank frame from the outset. Explain how
+the frames (and frame sets) are manipulated.  Why are we using frame sets?
+
+I feel that adding a new shape onto the frame should also be a SalsaCommand
+(explain why it is not)
+
 \section{Atomic Transaction Server}
 
 \section{Conclusion}
