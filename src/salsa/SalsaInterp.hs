@@ -3,8 +3,7 @@
 -- To be used at the exam for Advanced Programming, B1-2013
 --
 
-module SalsaInterp
-       -- (Position, interpolate, runProg)
+module SalsaInterp (Position, interpolate, runProg)
 where
 
 import SalsaAst
