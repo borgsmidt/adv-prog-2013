@@ -9,26 +9,31 @@ where
 
 import SalsaAst
 import Gpx
-import Data.List(union, (\\))
+import Data.List(intersect, union, (\\))
 import qualified Data.Map as M
 
 type Position = (Integer, Integer)
 interpolate :: Integer -> Position -> Position -> [Position]
--- TODO
-interpolate rate fromPos toPos = replicate (fromIntegral rate) toPos
+interpolate rate (x0, y0) (x1, y1)
+    | rate <= 0 = error "frame rate must be positive"
+    | otherwise = let xstep = (fromIntegral $ x1 - x0) / (fromIntegral rate)
+                      ystep = (fromIntegral $ y1 - y0) / (fromIntegral rate)
+                      xs = map round $ scanl (+) (fromIntegral x0) $ replicate (fromIntegral rate) xstep
+                      ys = map round $ scanl (+) (fromIntegral y0) $ replicate (fromIntegral rate) ystep
+                  in zip xs ys
 
 data Shape = Rect {
       idnt :: Ident
     , width :: Integer
     , height :: Integer
-    , col :: Colour
+    , colname :: String
     , vs :: [ViewT]
     } | Circ {
       idnt :: Ident
     , r :: Integer
-    , col :: Colour
+    , colname :: String
     , vs :: [ViewT]
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Ord)
 
 -- 'T' suffix is just to distinguish from Salsa AST constructors
 type ViewT = (Ident, Integer, Integer)
@@ -46,13 +51,14 @@ data Context = Context {
     }  deriving (Show, Eq)
 
 type PosMap = M.Map Ident (M.Map ViewT Position)
-type FrameSet = [Frame]
+type ExtFrame = [(Ident, GpxInstr)]
+type FrameSet = [ExtFrame]
 data State = State {
       shapePos :: PosMap
     , frameSets :: [FrameSet]
     } deriving (Show, Eq)
 
-blankFrame = [] :: [GpxInstr]
+blankFrame = [] :: ExtFrame
 -- TODO Clean this up
 baseState = State M.empty [[blankFrame]]
 baseContext rate = Context M.empty M.empty M.empty [] rate baseState
@@ -78,7 +84,7 @@ updateShapePos f = \state -> state { shapePos = f (shapePos state) }
 -- the key frame of a given context is always the latest frame in the latest frame set
 -- and a context always has at least a key frame, so we can assume it is there when
 -- pattern matching
-updateKeyFrame :: (Frame -> Frame) -> [FrameSet] -> [FrameSet]
+updateKeyFrame :: (ExtFrame -> ExtFrame) -> [FrameSet] -> [FrameSet]
 updateKeyFrame f = \((kf:set):sets) -> ((f kf):set):sets
 
 activeShapes :: Context -> [Shape]
@@ -90,45 +96,57 @@ animation :: Context -> Animation
 animation context =
     let vs = M.elems $ views context
         fs = reverse . concat . frameSets $ state context
-    in (vs , fs)
+    in (vs , map stripFrame fs)
+
+stripFrame :: ExtFrame -> Frame
+stripFrame pairs = snd $ unzip pairs
 
 moveShapes :: [Ident] -> Pos -> Context -> State
 moveShapes idents pos context =
+    let moving = shapesToMove idents context
+        -- 'neutral' map with full set of combinations to draw everything in its current position
+        wmap = M.fromList [((s, v), (shapeViewPos s v context, Nothing)) |
+                            s <- M.elems (shapes context), v <- vs s]
+        -- list of shapes to move, used to overwrite entries in the map
+        moves = [((s, v), (shapeViewPos s v context, Just pos)) |
+                  s <- moving, v <- activeViews context]
+        wmap' = foldl (\m (k, v) -> M.insert k v m) wmap moves
+        fs = replicate (fromIntegral $ frameRate context) blankFrame
+        fs' = foldl (writeToFrameSet context) fs $ M.toList wmap'
+        context' = foldr (updateActivePos $ Just pos) context moving
+    in updateFrameSets (fs' :) $ state context'
+
+writeToFrameSet :: Context -> FrameSet -> ((Shape, ViewT), (Position, Maybe Pos)) -> FrameSet
+writeToFrameSet context fs ((shape, view), (fromPos, p)) =
+    let toPos = getToPos context fromPos p
+        pos = interpolate (toInteger $ length fs) fromPos toPos
+    in zipWith (writeToFrame shape view) pos fs
+    
+-- Writes a single shape on a single view on a single frame
+writeToFrame :: Shape -> ViewT -> Position -> ExtFrame -> ExtFrame
+writeToFrame (Rect ident width height colname _) (vname,_,_) (llx, lly) frame =
+    (ident, (DrawRect llx lly width height vname colname)):frame
+writeToFrame (Circ ident r colname _) (vname,_,_) (x, y) frame =
+    (ident, (DrawCirc x y r vname colname)):frame
+
+getToPos :: Context -> Position -> Maybe Pos -> Position
+getToPos _ fromPos Nothing = fromPos
+getToPos context fromPos (Just (Abs xExpr yExpr)) =
+    (eval context xExpr, eval context yExpr)
+getToPos context (x, y) (Just (Rel xExpr yExpr)) =
+    (x + eval context xExpr, y + eval context yExpr)
+
+shapesToMove idents context =
     let moving = lookupIdents "moveShapes" context idents (shapes context)
         active = activeShapes context
-        other = active \\ moving
-        fs = if null $ moving \\ active
-             then replicate (fromIntegral $ frameRate context) blankFrame
-             else error $ "shapes not defined on all active views: " ++ show idents ++ "\ncontext: " ++ show other ++ show moving ++ show active
-        fs' = foldr (writeShape context $ Just pos) fs moving
-        fs'' = foldr (writeShape context Nothing) fs' other
-        context' = foldr (updateActivePos $ Just pos) context moving
-    in updateFrameSets (fs'' :) $ state context'
+    in if null $ moving \\ active
+       then moving
+       else error $ "shapes not defined on all active views: " ++ show idents ++ "\ncontext: " ++ show context
 
--- Writes a single shape, moving or stationary
-writeShape :: Context -> Maybe Pos -> Shape -> FrameSet -> FrameSet
-writeShape context pos shape fs =
-    let fromPos = activePos shape context
-        toPos = toPosition context fromPos pos
-    in writeShapeViews shape (activeViews context) fromPos toPos fs
-
--- Writes a single shape on all active views across all frames in the frame set
-writeShapeViews :: Shape -> [ViewT] -> [Position] -> [Position] -> FrameSet -> FrameSet
-writeShapeViews shape views fromPos toPos fs =
-    foldr (writeShapeViewFrames shape) fs (zip3 views fromPos toPos)
-
--- Writes a single shape on a single view across all frames in the frame set
-writeShapeViewFrames :: Shape -> (ViewT, Position, Position) -> FrameSet -> FrameSet
-writeShapeViewFrames shape (view, fromPos, toPos) fs =
-    let pos = interpolate (toInteger $ length fs) fromPos toPos
-    in zipWith (writeShapeViewFrame shape view) pos fs
-
--- Writes a single shape on a single view on a single frame
-writeShapeViewFrame :: Shape -> ViewT -> Position -> Frame -> Frame
-writeShapeViewFrame (Rect _ width height col _) (vname,_,_) (llx, lly) frame =
-    (DrawRect llx lly width height vname (colorName col)):frame
-writeShapeViewFrame (Circ _ r col _) (vname,_,_) (x, y) frame =
-    (DrawCirc x y r vname (colorName col)):frame
+shapeViewPos shape view context =
+    let posMap = shapePos $ state context
+        pmap = lookupIdent "" context (idnt shape) posMap
+    in lookupIdent "" context view pmap
 
 activePos :: Shape -> Context -> [Position]
 activePos shape context =
@@ -176,10 +194,9 @@ addShape ident shape pos context =
         context'' = updateState (updateShapePos $ addToPosMap ident pos context') context'
     in writeShapeToKeyFrame shape pos context''
 
-
 writeShapeToKeyFrame :: Shape -> Position -> Context -> Context
 writeShapeToKeyFrame shape pos context =
-    let writer = \view frame -> writeShapeViewFrame shape view pos frame
+    let writer = \view frame -> writeToFrame shape view pos frame
         updater = \frame -> foldr writer frame $ activeViews context
     in updateState (updateFrameSets $ updateKeyFrame updater) context
 
@@ -233,39 +250,53 @@ local f m = SalsaCommand $ \context -> runSC m (f context)
 
 command :: Command -> SalsaCommand ()
 command (At com ident) = local (activate ident) $ command com
-command (Par com0 com1) = command com0 >> command com1 >> mergeConcurrent ()
+command (Par com0 com1) = command com0 >> command com1 >> mergeConcurrent com0 com1 ()
 command (Move idents pos) =
-    SalsaCommand $ \context -> let state = moveShapes idents pos context
-                               in ((), state)
+    SalsaCommand $ \context -> ((), moveShapes idents pos context)
 
+mergeConcurrent :: Command -> Command -> a -> SalsaCommand a
+mergeConcurrent com0 com1 x =
+    SalsaCommand $ \context -> (x, updateFrameSets (mergeFrameSets com0 com1) $ state context)
 
-mergeConcurrent :: a -> SalsaCommand a
-mergeConcurrent x =
-    SalsaCommand $ \context -> (x, updateFrameSets mergeTwoFrameSets $ state context)
+{- Strategy: take the latest frame set (head of list), which was generated by
+ - com1, and copy across any instruction pertaining to shapes manipulated by com0.
+ - Note: This implementation relies on 'union' to give priority to elements from
+ - its first list argument -}
+mergeFrameSets :: Command -> Command -> [FrameSet] -> [FrameSet]
+mergeFrameSets com0 com1 (fs1:fs0:sets) =
+    let shps0 = shapesFromCommand com0
+        shps1 = shapesFromCommand com1
+--        fs0' = filter (\(ident, _) -> not $ ident `elem` shps1) fs0
+--        fs1' = filter (\(ident, _) -> not $ ident `elem` shps0) fs1
+    in if null $ intersect shps0 shps1
+       then (zipWith (mergeFrames shps1 shps0) fs1 fs0):sets
+       else error $ "concurrent commands manipulating same shapes: "
+                ++ show shps0 ++ " and " ++ show shps1
 
-mergeTwoFrameSets :: [FrameSet] -> [FrameSet]
-mergeTwoFrameSets (fs0:fs1:sets) = (zipWith union fs0 fs1):sets
+mergeFrames :: [Ident] -> [Ident] -> ExtFrame -> ExtFrame -> ExtFrame
+mergeFrames shps1 shps0 frame1 frame0 =
+    let frame0' = filter (\(ident, _) -> not $ ident `elem` shps1) frame0
+        frame1' = filter (\(ident, _) -> not $ ident `elem` shps0) frame1
+    in union frame1' frame0'
 
-
-{-let shapes 
-                                   current = currentPos context idents
-                                   new = newPos current pos
-
-[[0, 0, 0], [1, 1, 1]]
-[[2, 2, 2], [2, 2, 2]]
-
-
-
- env = environment context
-                                   st = state context
-                                   views = activeViews env
-
--}
+shapesFromCommand :: Command -> [Ident]
+shapesFromCommand (At com _) = shapesFromCommand com
+shapesFromCommand (Par com0 com1) = shapesFromCommand com0 ++ shapesFromCommand com1
+shapesFromCommand (Move idents _) = idents
 
 -- TODO
 eval :: Context -> Expr -> Integer
 eval _ (Const val) = val
-eval context expr = 42
+eval context (Plus expr0 expr1) = eval context expr0 + eval context expr1
+eval context (Minus expr0 expr1) = eval context expr0 - eval context expr1
+eval context (Xproj ident) =
+    let shape = lookupIdent "eval Xproj" context ident (shapes context)
+        (xpos,_) = unzip $ activePos shape context
+    in foldl min 0 xpos
+eval context (Yproj ident) =
+    let shape = lookupIdent "eval Yproj" context ident (shapes context)
+        (_,ypos) = unzip $ activePos shape context
+    in foldl min 0 ypos
 
 colorName :: Colour -> String
 colorName Blue = "blue"
@@ -289,14 +320,14 @@ definition (Rectangle ident llxExpr llyExpr wExpr hExpr col) =
                              width = eval context wExpr
                              height = eval context hExpr
                              vs = activeViews context
-                             rect = Rect ident width height col vs
+                             rect = Rect ident width height (colorName col) vs
                         in ((), addShape ident rect (llx, lly) context)
 definition (Circle ident xExpr yExpr rExpr col) =
     Salsa $ \context -> let  x = eval context xExpr
                              y = eval context yExpr
                              r = eval context rExpr
                              vs = activeViews context
-                             circle = Circ ident r col vs
+                             circle = Circ ident r (colorName col) vs
                         in ((), addShape ident circle (x, y) context)
 definition (View ident) =
     Salsa $ \context -> ((), activate ident context)
