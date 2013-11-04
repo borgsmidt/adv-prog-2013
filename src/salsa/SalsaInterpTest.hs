@@ -1,1 +1,1 @@
-[ Def (Viewdef "Default" (Const 400) (Const 400)), Def (Rectangle "box" (Const 10) (Const 400) (Const 20) (Const 20) Green) ]
+[ Def (Viewdef "Default" (Const 400) (Const 400)), Def (Rectangle "box" (Const 10) (Const 400) (Const 20) (Const 20) Green), Com (Move ["box"] (Abs (Const 10) (Const 200))), Com (Move ["box"] (Rel (Const 100) (Const 0))) ]

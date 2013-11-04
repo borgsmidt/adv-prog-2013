@@ -15,7 +15,7 @@ import qualified Data.Map as M
 type Position = (Integer, Integer)
 interpolate :: Integer -> Position -> Position -> [Position]
 -- TODO
-interpolate rate fromPos toPos = [toPos]
+interpolate rate fromPos toPos = replicate (fromIntegral rate) toPos
 
 data Shape = Rect {
       idnt :: Ident
@@ -43,14 +43,14 @@ data Context = Context {
     , activeViews :: [ViewT]
     , frameRate :: Integer
     , state :: State
-    }
+    }  deriving (Show, Eq)
 
-type PosMap = M.Map Ident [(ViewT, Position)]
+type PosMap = M.Map Ident (M.Map ViewT Position)
 type FrameSet = [Frame]
 data State = State {
       shapePos :: PosMap
     , frameSets :: [FrameSet]
-    }
+    } deriving (Show, Eq)
 
 blankFrame = [] :: [GpxInstr]
 -- TODO Clean this up
@@ -72,6 +72,9 @@ updateState f = \context -> context { state = f (state context) }
 updateFrameSets :: ([FrameSet] -> [FrameSet]) -> State -> State
 updateFrameSets f = \state -> state { frameSets = f (frameSets state) }
 
+updateShapePos :: (PosMap -> PosMap) -> State -> State
+updateShapePos f = \state -> state { shapePos = f (shapePos state) }
+
 -- the key frame of a given context is always the latest frame in the latest frame set
 -- and a context always has at least a key frame, so we can assume it is there when
 -- pattern matching
@@ -89,17 +92,18 @@ animation context =
         fs = reverse . concat . frameSets $ state context
     in (vs , fs)
 
-writeShapes :: [Ident] -> Pos -> Context -> State
-writeShapes idents pos context =
-    let moving = lookupIdents idents (shapes context)
+moveShapes :: [Ident] -> Pos -> Context -> State
+moveShapes idents pos context =
+    let moving = lookupIdents "moveShapes" context idents (shapes context)
         active = activeShapes context
         other = active \\ moving
         fs = if null $ moving \\ active
              then replicate (fromIntegral $ frameRate context) blankFrame
-             else error $ "shapes not defined on all active views: " ++ show idents
+             else error $ "shapes not defined on all active views: " ++ show idents ++ "\ncontext: " ++ show other ++ show moving ++ show active
         fs' = foldr (writeShape context $ Just pos) fs moving
         fs'' = foldr (writeShape context Nothing) fs' other
-    in updateFrameSets (fs'' :) $ state context
+        context' = foldr (updateActivePos $ Just pos) context moving
+    in updateFrameSets (fs'' :) $ state context'
 
 -- Writes a single shape, moving or stationary
 writeShape :: Context -> Maybe Pos -> Shape -> FrameSet -> FrameSet
@@ -129,8 +133,27 @@ writeShapeViewFrame (Circ _ r col _) (vname,_,_) (x, y) frame =
 activePos :: Shape -> Context -> [Position]
 activePos shape context =
     let views = activeViews context
-        vps = lookupIdent (idnt shape) $ shapePos $ state context
-    in snd $ unzip $ filter (\(v, p) -> v `elem` views) vps
+        pmap = lookupIdent "activePos" context (idnt shape) $ shapePos $ state context
+    in lookupIdents "activePos" context views pmap
+
+updateActivePos :: Maybe Pos -> Shape -> Context -> Context
+updateActivePos pos shape context = 
+    updateState (updateShapePos $ updatePosMap pos shape context) context
+
+updatePosMap :: Maybe Pos -> Shape -> Context -> PosMap -> PosMap
+updatePosMap pos shape context =
+    \pmap -> let fromPos = activePos shape context
+                 toPos = toPosition context fromPos pos
+                 views = activeViews context
+                 mp = lookupIdent "updatePosMap" context (idnt shape) pmap
+                 mp' = foldl (\m (k, v) -> M.insert k v m) mp $ zip views toPos
+             in M.insert (idnt shape) mp' pmap
+
+addToPosMap :: Ident -> Position -> Context -> PosMap -> PosMap
+addToPosMap ident pos context =
+    \pmap -> let views = activeViews context
+                 mp = foldl (\m k -> M.insert k pos m) M.empty views
+             in M.insert ident mp pmap
 
 toPosition :: Context -> [Position] -> Maybe Pos -> [Position]
 toPosition _ fromPos Nothing = fromPos
@@ -145,12 +168,14 @@ toPosition context fromPos (Just (Rel xExpr yExpr)) =
 
 addView :: Ident -> ViewT -> Context -> Context
 addView ident view context =
-    setActive ident $ updateViews (M.insert ident view) context
+    activate ident $ updateViews (M.insert ident view) context
 
 addShape :: Ident -> Shape -> Position -> Context -> Context
 addShape ident shape pos context =
     let context' = updateShapes (M.insert ident shape) context
-    in writeShapeToKeyFrame shape pos context'
+        context'' = updateState (updateShapePos $ addToPosMap ident pos context') context'
+    in writeShapeToKeyFrame shape pos context''
+
 
 writeShapeToKeyFrame :: Shape -> Position -> Context -> Context
 writeShapeToKeyFrame shape pos context =
@@ -160,25 +185,20 @@ writeShapeToKeyFrame shape pos context =
 
 addGroup :: Ident -> [Ident] -> Context -> Context
 addGroup ident idents context =
-    let vs = lookupIdents idents (views context)
+    let vs = lookupIdents "addGroup" context idents (views context)
     in updateGroups (M.insert ident (ident, vs)) context
 
-lookupIdent :: Ident -> M.Map Ident a -> a
-lookupIdent ident m =
+lookupIdent :: Ord b => String -> Context -> b -> M.Map b a -> a
+lookupIdent msg context ident m =
     case M.lookup ident m of
-      Nothing -> error $ "undefined object: " ++ show ident
+      Nothing -> error $ "undefined object: " ++ "\ncontext: " ++ show context ++ msg
       Just v -> v
 
-lookupIdents :: [Ident] -> M.Map Ident a -> [a]
-lookupIdents idents m = map (flip lookupIdent m) idents
-{-lookupIdents idents m =
-    case sequence $ map (flip M.lookup m) idents of
-      Nothing -> error $ "undefined object in: " ++ show idents
-      Just vs -> vs
--}
+lookupIdents :: Ord b => String -> Context -> [b] -> M.Map b a -> [a]
+lookupIdents msg context idents m = map (flip (lookupIdent msg context) m) idents
 
-setActive :: Ident -> Context -> Context
-setActive ident context =
+activate :: Ident -> Context -> Context
+activate ident context =
 {- I wonder if there is a clever way of stringing together multiple Maybes,
  - branching on Nothing. It is opposite of the usual Maybe Monad behavior where
  - the occurrence of a single Nothing forces the combined result to Nothing -}
@@ -212,10 +232,10 @@ local :: (Context -> Context) -> SalsaCommand a -> SalsaCommand a
 local f m = SalsaCommand $ \context -> runSC m (f context)
 
 command :: Command -> SalsaCommand ()
-command (At com ident) = local (setActive ident) $ command com
+command (At com ident) = local (activate ident) $ command com
 command (Par com0 com1) = command com0 >> command com1 >> mergeConcurrent ()
 command (Move idents pos) =
-    SalsaCommand $ \context -> let state = writeShapes idents pos context
+    SalsaCommand $ \context -> let state = moveShapes idents pos context
                                in ((), state)
 
 
@@ -244,6 +264,7 @@ mergeTwoFrameSets (fs0:fs1:sets) = (zipWith union fs0 fs1):sets
 
 -- TODO
 eval :: Context -> Expr -> Integer
+eval _ (Const val) = val
 eval context expr = 42
 
 colorName :: Colour -> String
@@ -278,7 +299,7 @@ definition (Circle ident xExpr yExpr rExpr col) =
                              circle = Circ ident r col vs
                         in ((), addShape ident circle (x, y) context)
 definition (View ident) =
-    Salsa $ \context -> ((), setActive ident context)
+    Salsa $ \context -> ((), activate ident context)
 definition (Group ident idents) =
     Salsa $ \context -> ((), addGroup ident idents context)
 
