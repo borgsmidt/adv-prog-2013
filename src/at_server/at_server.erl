@@ -36,7 +36,7 @@
 	 code_change/3]).
 
 %% Definitions
--define(SERVER, ?MODULE).
+-define(DEFAULT_TIMEOUT, 5000).
 
 %%%===================================================================
 %%% API
@@ -44,7 +44,7 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts a new Atomic Transaction Server
+%% Starts a new Atomic Transaction (AT) server
 %%
 %% @spec start(State) -> {ok, AT}
 %% where
@@ -57,7 +57,7 @@ start(State) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Stops the specified Atomic Transaction Server
+%% Stops the specified AT server
 %%
 %% @spec stop(AT) -> {ok, State}
 %% where
@@ -68,7 +68,28 @@ start(State) ->
 stop(AT) ->
     gen_server:call(AT, stop).
 
-doquery(AT, Fun) -> put_your_code.
+%%--------------------------------------------------------------------
+%% @doc
+%% Runs the specified query function against the current state of the
+%% AT server
+%%
+%% @spec doquery(AT, Fun) -> {ok, Result} or error
+%% where
+%%   AT = pid()
+%%   Fun = function(State)
+%%   Result = term()
+%% @end
+%%--------------------------------------------------------------------
+doquery(AT, Fun) ->
+    % We are allowing the client-provided function a 'reasonable' amount
+    % of time to complete its call, although we cannot really know how
+    % long it needs. But if we use 'infinity', we expose our AT server
+    % to the risk of being stalled indefinitely by a rogue query function
+    try
+        gen_server:call(AT, {doquery, Fun}, ?DEFAULT_TIMEOUT)
+    catch
+	_ : _ -> error
+    end.
 
 % Returns a reference
 begin_t(AT) -> put_your_code.
@@ -90,11 +111,16 @@ init([State]) ->
 
 handle_call(stop, _From, State) ->
     Reply = {ok, State},
-    {stop, normal, Reply, State}.
+    {stop, normal, Reply, State};
+handle_call({doquery, Fun}, _From, State) ->
+    % Leave failure handling to doquery
+    Reply = {ok, Fun(State)}
+    {reply, Reply, State}.
 
 handle_cast(_Msg, State) -> {noreply, State}.
 
-handle_info(_Info, State) -> {noreply, State}.
+handle_info(_Reason, State) ->
+    {noreply, State}.
 
 terminate(_Reason, _State) -> ok.
 
