@@ -34,10 +34,15 @@
 
 %% Macros
 -define(DEFAULT_TIMEOUT, 5000).
+-define(T_REF_POS, 2).
 
 %% Data types
+-record(trans, {t_ref :: reference(),
+		t_pid :: pid()
+	       }).
+
 -record(state, {user_state :: term(),
-		running_ts = [] :: [ { reference(), pid() } ]
+		transactions = [] :: [ #trans{} ]
 	       }).
 
 %%%===================================================================
@@ -110,11 +115,15 @@ doquery(AT, Fun) ->
 begin_t(AT) ->
     gen_server:call(AT, begin_t).
 
-query_t(AT, Ref, Fun) -> put_your_code.
+query_t(AT, Ref, Fun) ->
+    % Avoid timing out at this point, handled by the transaction process
+    gen_server:call(AT, {query_t, Ref, Fun}, infinity).
 
-update_t(AT, Ref, Fun) -> put_your_code.
+update_t(AT, Ref, Fun) ->
+    gen_server:cast(AT, {update_t, Ref, Fun}).
 
-commit_t(AT, Ref) -> put_your_code.
+commit_t(AT, Ref) ->
+    gen_server:call(AT, {commit_t, Ref}).
 
 %%%-------------------------------------------------------------------
 %%% Internal Implementation
@@ -123,11 +132,13 @@ commit_t(AT, Ref) -> put_your_code.
 %% gen_server callbacks
 
 init([UserState]) ->
+    % Trap exit messages so the AT server does not exit if a transaction
+    % process dies unexpectedly
+    process_flag(trap_exit, true),
     {ok, #state{ user_state = UserState }}.
 
 handle_call(stop, _From, State) ->
-    Reply = {ok, State},
-    {stop, normal, Reply, State};
+    {stop, normal, {ok, State}, State#state.user_state};
 handle_call({doquery, Fun}, _From, State) ->
     try Fun(State#state.user_state) of
 	Result -> {reply, {ok, Result}, State}
@@ -135,20 +146,71 @@ handle_call({doquery, Fun}, _From, State) ->
 	_ : _ -> {reply, error, State}
     end;
 handle_call(begin_t, _From, State) ->
-    UserState = State#state.user_state,
-    % Link transaction process with AT server to ensure clean termination
-    % if the server is stopped with running transactions
-    {ok, TPid} = at_trans:start_link(UserState),
-    TRef = make_ref(),
-    RunningTs = State#state.running_ts,
-    NewState = State#state{ running_ts = [{TRef, TPid} | RunningTs] },
-    {reply, {ok, TRef}, NewState}.
+    {TRef, NewState} = make_trans(State),
+    {reply, {ok, TRef}, NewState};
+handle_call({query_t, TRef, Fun}, _From, State) ->
+    Trans = find_trans(TRef, State),
+    io:format("All: ~p~n", [State#state.transactions]),
+    io:format("Trans: ~p~n", [Trans]),
+    case query_trans(Trans, Fun) of
+	undefined -> {reply, aborted, State};
+	error -> NewState = abort_trans(Trans, State),
+		 {reply, aborted, NewState};
+	Reply -> {reply, Reply, State}
+    end;
+handle_call(_Msg, _From, State) ->
+    {ok, State}.
 
-handle_cast(_Msg, State) -> {noreply, State}.
+handle_cast({update_t, TRef, Fun}, State) ->
+    Trans = find_trans(TRef, State),
+    io:format("All: ~p~n", [State#state.transactions]),
+    io:format("Trans: ~p~n", [Trans]),
+    case update_trans(Trans, Fun) of
+	error -> NewState = abort_trans(Trans, State),
+		 {noreply, NewState};
+	_ -> {noreply, State}
+    end;
+handle_cast(_Msg, State) ->
+    {noreply, State}.
 
 handle_info(_Reason, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) -> ok.
+terminate(_Reason, _State) ->
+    ok.
 
-code_change(_OldVsn, State, _Extra) -> {ok, State}.
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%% Utility functions
+
+make_trans(State) ->
+    % Link transaction process with AT server to ensure clean termination
+    % if the server is stopped with running transactions
+    {ok, TPid} = at_trans:start_link(State#state.user_state),
+    TRef = make_ref(),
+    Trans = #trans{ t_ref = TRef, t_pid = TPid },
+    NewTransactions = [Trans | State#state.transactions],
+    {TRef, State#state{ transactions = NewTransactions }}.
+
+abort_trans(Trans, State) ->
+    exit(Trans#trans.t_pid, abort),
+    NewTransactions = lists:keydelete(Trans#trans.t_ref, ?T_REF_POS,
+				      State#state.transactions),
+    State#state{ transactions = NewTransactions }.
+
+find_trans(TRef, State) ->
+    case lists:keyfind(TRef, ?T_REF_POS, State#state.transactions) of
+	false -> undefined;
+	Trans -> Trans
+    end.
+
+query_trans(undefined, _) ->
+    undefined;
+query_trans(Trans, Fun) ->
+    at_trans:doquery(Trans#trans.t_pid, Fun).
+	
+update_trans(undefined, _) ->
+    undefined;
+update_trans(Trans, Fun) ->
+    at_trans:update(Trans#trans.t_pid, Fun).
