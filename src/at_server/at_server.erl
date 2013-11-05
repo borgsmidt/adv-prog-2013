@@ -1,11 +1,7 @@
 %%%-------------------------------------------------------------------
-%%% @author Michael Kirkedal Thomsen <shapper@diku.dk>
-%%% @copyright (C) 2013, Michael Kirkedal Thomsen
 %%% @doc
-%%% Skeleton for AP Exam 2013.
-%%% Implementation of the atomic transaction server
+%%% Implementation of the atomic transaction (AT) server
 %%% @end
-%%% Created : Oct 2013 by Michael Kirkedal Thomsen <shapper@diku.dk>
 %%%-------------------------------------------------------------------
 %%% Student name: Rasmus Borgsmidt
 %%% Student KU-id: qzp823
@@ -33,10 +29,16 @@
 	 handle_cast/2,
 	 handle_info/2,
 	 terminate/2,
-	 code_change/3]).
+	 code_change/3
+	]).
 
-%% Definitions
+%% Macros
 -define(DEFAULT_TIMEOUT, 5000).
+
+%% Data types
+-record(state, {user_state :: term(),
+		running_ts = [] :: [ { reference(), pid() } ]
+	       }).
 
 %%%===================================================================
 %%% API
@@ -44,7 +46,7 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts a new Atomic Transaction (AT) server
+%% Starts a new AT server
 %%
 %% @spec start(State) -> {ok, AT}
 %% where
@@ -71,7 +73,10 @@ stop(AT) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Runs the specified query function against the current state of the
-%% AT server
+%% AT server and returns the result
+%%
+%% The atom 'error' is returned, if the supplied query function fails
+%% or if the call times out
 %%
 %% @spec doquery(AT, Fun) -> {ok, Result} or error
 %% where
@@ -91,8 +96,19 @@ doquery(AT, Fun) ->
 	_ : _ -> error
     end.
 
-% Returns a reference
-begin_t(AT) -> put_your_code.
+%%--------------------------------------------------------------------
+%% @doc
+%% Begins a transaction on the current state of the AT server and returns
+%% a transaction reference
+%%
+%% @spec begin_t(AT) -> {ok, Ref}
+%% where
+%%   AT = pid()
+%%   Ref = reference()
+%% @end
+%%--------------------------------------------------------------------
+begin_t(AT) ->
+    gen_server:call(AT, begin_t).
 
 query_t(AT, Ref, Fun) -> put_your_code.
 
@@ -106,16 +122,27 @@ commit_t(AT, Ref) -> put_your_code.
 
 %% gen_server callbacks
 
-init([State]) ->
-    {ok, State}.
+init([UserState]) ->
+    {ok, #state{ user_state = UserState }}.
 
 handle_call(stop, _From, State) ->
     Reply = {ok, State},
     {stop, normal, Reply, State};
 handle_call({doquery, Fun}, _From, State) ->
-    % Leave failure handling to doquery
-    Reply = {ok, Fun(State)}
-    {reply, Reply, State}.
+    try Fun(State#state.user_state) of
+	Result -> {reply, {ok, Result}, State}
+    catch
+	_ : _ -> {reply, error, State}
+    end;
+handle_call(begin_t, _From, State) ->
+    UserState = State#state.user_state,
+    % Link transaction process with AT server to ensure clean termination
+    % if the server is stopped with running transactions
+    {ok, TPid} = at_trans:start_link(UserState),
+    TRef = make_ref(),
+    RunningTs = State#state.running_ts,
+    NewState = State#state{ running_ts = [{TRef, TPid} | RunningTs] },
+    {reply, {ok, TRef}, NewState}.
 
 handle_cast(_Msg, State) -> {noreply, State}.
 
@@ -125,39 +152,3 @@ handle_info(_Reason, State) ->
 terminate(_Reason, _State) -> ok.
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
-
-% Your implementation of the atomic transaction server.
-
-
-
-%%%-------------------------------------------------------------------
-%%% Communication primitives
-%%%-------------------------------------------------------------------
-
-%% synchronous communication
-
-rpc(Pid, Request) ->
-    Pid ! {self(), Request},
-    receive
-        {Pid, Response} -> Response
-    end.
-
-reply(From,  Msg) ->
-    From ! {self(), Msg}.
-
-reply_ok(From) ->
-    reply(From, ok).
-
-reply_ok(From, Msg) ->
-    reply(From, {ok, Msg}).
-
-reply_error(From, Msg) ->
-    reply(From, error).
-
-reply_abort(From) ->
-    reply(From, aborted).
-
-%% asynchronous communication
-
-info(Pid, Msg) ->
-    Pid ! Msg.
