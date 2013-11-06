@@ -104,12 +104,15 @@ update(TP, Fun) ->
 init([UserState, AT]) ->
     {ok, #state{ at_server = AT, user_state = UserState}}.
 
+%%% From at_trans:queryall(TP) -> {ok, UserState}
 handle_call(queryall, _From, State) ->
     {reply, {ok, State#state.user_state}, State};
 
+%%% Default catch-all
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
+%%% From at_trans:doquery(TP) -> ok
 handle_cast({doquery, Fun, Token}, State) ->
     try Fun(State#state.user_state) of
         Result -> tell(State#state.at_server, {query_succeeded, Result, Token}),
@@ -119,6 +122,7 @@ handle_cast({doquery, Fun, Token}, State) ->
                  {noreply, State}
     end;
     
+%%% From at_trans:update(TP, Fun) -> ok
 handle_cast({update, Fun}, State) ->
     try Fun(State#state.user_state) of
         NewUserState -> tell(State#state.at_server, update_succeeded),
@@ -128,15 +132,20 @@ handle_cast({update, Fun}, State) ->
         _ : _ -> tell(State#state.at_server, update_failed),
                  {noreply, State}
     end;
+
+%%% Default catch-all
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+%%% Default catch-all
 handle_info(_Reason, State) ->
     {noreply, State}.
 
+%%% Default catch-all
 terminate(_Reason, _State) ->
     ok.
 
+%%% Default catch-all
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 

@@ -116,13 +116,47 @@ doquery(AT, Fun) ->
 begin_t(AT) ->
     gen_server:call(AT, begin_t).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Queries the current state of the specified transaction
+%%
+%% @spec query_t(AT, Ref, Fun) -> {ok, Result} or aborted
+%% where
+%%   AT = pid()
+%%   Ref = reference()
+%%   Fun = function(State)
+%%   Result = term()
+%% @end
+%%--------------------------------------------------------------------
 query_t(AT, Ref, Fun) ->
-    % Avoid timing out at this point, handled by the transaction process
+    % Don't use a timeout, which can be built into the query function if necessary
     gen_server:call(AT, {query_t, Ref, Fun}, infinity).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Updates the current state of the specified transaction. This function is
+%% non-blocking and returns ok immediately
+%%
+%% @spec update_t(AT, Ref, Fun) -> ok
+%% where
+%%   AT = pid()
+%%   Ref = reference()
+%%   Fun = function(State)
+%% @end
+%%--------------------------------------------------------------------
 update_t(AT, Ref, Fun) ->
     gen_server:cast(AT, {update_t, Ref, Fun}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Commits the specified transaction to the AT server.
+%%
+%% @spec commit_t(AT, Ref) -> ok / aborted
+%% where
+%%   AT = pid()
+%%   Ref = reference()
+%% @end
+%%--------------------------------------------------------------------
 commit_t(AT, Ref) ->
     gen_server:call(AT, {commit_t, Ref}).
 
@@ -171,7 +205,7 @@ handle_call({commit_t, TRef}, _From, State) ->
     case find_trans_ref(TRef, State) of
         undefined -> {reply, aborted, State};
         Trans -> NewState = commit_trans(Trans, State),
-                 {noreply, NewState}
+                 {reply, ok, NewState}
     end;
 
 %%% Default catch-all
@@ -194,9 +228,16 @@ handle_cast(_Msg, State) ->
 %%% Call-backs handling out-of-band transaction process messages
 %%%-------------------------------------------------------------------
 
-handle_info({_TPid, {query_succeeded, Result, Client}}, State) ->
-    NewState = reply_client(Client, {ok, Result}, State),
-    {noreply, NewState};
+handle_info({TPid, {query_succeeded, Result, Client}}, State) ->
+    case find_trans_pid(TPid, State) of
+	undefined ->
+	    % The query succeeded but the transaction was aborted in the meantime
+	    NewState = reply_client(Client, aborted, State),
+	    {noreply, NewState};
+	_ ->
+	    NewState = reply_client(Client, {ok, Result}, State),
+	    {noreply, NewState}
+    end;
 
 handle_info({TPid, {query_failed, Client}}, State) ->
     Trans = find_trans_pid(TPid, State),

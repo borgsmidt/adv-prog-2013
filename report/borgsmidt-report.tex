@@ -474,6 +474,20 @@ Using a waiting list of clients is safe because query_t is blocking so each
 client can appear at most once in the list
 
 clients can build a timeout into the query and update functions
+
+Copy in text from test file
+
+theoretic problem in choiceUpdate with many processes if choiceUpdate is still
+creating new processes while the first has already completed.
+
+From the exam text:
+
+"[...] the result of choiceUpdate is the result of this commit."
+
+In a strict sense, the "result of this commit" 
+
+The direct return value of 
+
 \section{Conclusion}
 
 
