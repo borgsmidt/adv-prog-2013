@@ -5,11 +5,11 @@
 
 module SalsaParser 
     (
-       Program
-     , Error
-     , parseString
---     , parseFile
-     , reserved
+      Program
+    , Error
+    , parseString
+    , parseFile
+    , reserved
     ) where
 
 import SalsaAst
@@ -37,7 +37,9 @@ parseString input = let res = parse (do r <- program
                          (r,_):_ -> Right r
 
 -- top-level parsing function that reads its input from a file
--- parseFile :: FilePath -> IO (Either Error Program)
+parseFile :: FilePath -> IO (Either Error Program)
+parseFile path = do input <- readFile path
+                    return $ parseString input
 
 -- Program parser
 program :: Parser Program

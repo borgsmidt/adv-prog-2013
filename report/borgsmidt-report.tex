@@ -465,6 +465,12 @@ I feel that adding a new shape onto the frame should also be a SalsaCommand
 
 Talk about not using more monads -- eval is too simple
 
+-- When talking about this type, point out that no error handling is necessary
+-- This type reflects that running a command cannot update the environment,
+-- just the state
+-- The type captures the effect of a command in a given context
+newtype SalsaCommand a = SalsaCommand { runSC :: Context -> (a, State) }
+
 \section{Atomic Transaction Server}
 
 Why have I chosen to use OTP?

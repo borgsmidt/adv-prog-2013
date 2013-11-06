@@ -145,7 +145,27 @@ main = do putStrLn "\n*** Checking Colour ***"
                        , Com (Move ["larry","fawn"]
                                    (Rel (Const 0) (Minus (Const 0) (Const 300))))]
 
+          putStrLn "\n*** Checking parseFile ***"
+          Right ast <- parseFile "multi.salsa"
+          contents <- readFile  "multi.salsa"
+          putStrLn $ flip assert (shw "pass" contents) (ast ==
+                       [ Def (Viewdef "One" (Const 500) (Const 500))
+                       , Def (Viewdef "Two" (Const 400) (Const 400))
+                       , Def (Group "Both" ["One","Two"])
+                       , Def (View "Both")
+                       , Def (Rectangle "larry" (Const 10) (Const 350)
+                                                (Const 20) (Const 20) Blue)
+                       , Def (Rectangle "fawn" (Const 300) (Const 350)
+                                               (Const 15) (Const 25) Plum)
+                       , Def (View "Two")
+                       , Com (Par (Move ["larry"] (Abs (Const 300) (Const 350)))
+                                  (Move ["fawn"] (Abs (Const 10) (Const 350))))
+                       , Def (View "Both")
+                       , Com (Move ["larry","fawn"]
+                                   (Rel (Const 0) (Minus (Const 0) (Const 300))))])
+
           putStrLn "\n*** All tests completed successfully ***\n"
+  
 
     where
       checkCol f s c = f ("circle c 0 0 0 " ++ s) [Def (Circle "c" (Const 0) (Const 0) (Const 0) c)]
