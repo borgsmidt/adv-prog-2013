@@ -470,6 +470,10 @@ Talk about not using more monads -- eval is too simple
 Why have I chosen to use OTP?
 Talk about time outs and client-provided query functions
 
+Using a waiting list of clients is safe because query_t is blocking so each
+client can appear at most once in the list
+
+clients can build a timeout into the query and update functions
 \section{Conclusion}
 
 

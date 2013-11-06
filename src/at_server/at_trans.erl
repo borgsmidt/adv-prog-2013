@@ -13,23 +13,25 @@
 
 %% API exports
 -export([
-	 start_link/1,
-	 stop/1,
-	 doquery/2,
-	 update/2
-	]).
+         start_link/1,
+         doquery/3,
+         queryall/1,
+         update/2
+        ]).
 
 %% gen_server callbacks
 -export([
-	 init/1,
-	 handle_call/3,
-	 handle_cast/2,
-	 handle_info/2,
-	 terminate/2,
-	 code_change/3]).
+         init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
-%% Macros
--define(DEFAULT_TIMEOUT, 5000).
+%% Data types
+-record(state, { at_server :: pid(),
+                 user_state :: term()
+                }).
 
 %%%===================================================================
 %%% API
@@ -46,69 +48,52 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(State) ->
-    gen_server:start_link(?MODULE, [State], []).
+    gen_server:start_link(?MODULE, [State, self()], []).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Stops the specified transaction process
+%% Runs the query function against the state of the transaction but is
+%% non-blocking and always returns ok. The result is sent in a separate
+%% message later when it is ready, and the supplied token is returned
+%% with it
 %%
-%% @spec stop(TP) -> ok
-%% where
-%%   TP = pid()
-%% @end
-%%--------------------------------------------------------------------
-stop(TP) ->
-    gen_server:call(TP, stop).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Runs the query function against the state of the transaction and
-%% returns the result
-%%
-%% The atom 'error' is returned, if the supplied query function fails
-%% or if the call times out
-%%
-%% @spec doquery(TP, Fun) -> {ok, Result} or error
+%% @spec doquery(TP, Fun, Token) -> ok
 %% where
 %%   TP = pid()
 %%   Fun = function(State)
-%%   Result = term()
+%%   Token = term()
 %% @end
 %%--------------------------------------------------------------------
-doquery(TP, Fun) ->
-    % We are allowing the client-provided function a 'reasonable' amount
-    % of time to complete its call, although we cannot really know how
-    % long it needs. But if we use 'infinity', we expose our transaction
-    % process to the risk of being stalled indefinitely by a rogue function
-    try
-        gen_server:call(TP, {doquery, Fun}, ?DEFAULT_TIMEOUT)
-    catch
-	_ : _ -> error
-    end.
+doquery(TP, Fun, Token) ->
+    gen_server:cast(TP, {doquery, Fun, Token}).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Runs the update function against the state of the transaction
+%% Returns the entire state held by this transaction process
 %%
-%% The atom 'error' is returned, if the supplied update function fails
-%% or if the call times out
+%% @spec queryall(TP) -> {ok, State}
+%% where
+%%   TP = pid()
+%%   State = term()
+%% @end
+%%--------------------------------------------------------------------
+queryall(TP) ->
+    gen_server:call(TP, queryall).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Runs the update function against the state of the transaction but is
+%% non-blocking and always returns ok. A message is sent later to indicate
+%% if the operation succeeded
 %%
-%% @spec update(TP, Fun) -> ok or error
+%% @spec update(TP, Fun) -> ok
 %% where
 %%   TP = pid()
 %%   Fun = function(State)
 %% @end
 %%--------------------------------------------------------------------
 update(TP, Fun) ->
-    % We are allowing the client-provided function a 'reasonable' amount
-    % of time to complete its call, although we cannot really know how
-    % long it needs. But if we use 'infinity', we expose our transaction
-    % process to the risk of being stalled indefinitely by a rogue function
-    try
-        gen_server:call(TP, {update, Fun}, ?DEFAULT_TIMEOUT)
-    catch
-	_ : _ -> error
-    end.
+    gen_server:cast(TP, {update, Fun}).
 
 %%%-------------------------------------------------------------------
 %%% Internal Implementation
@@ -116,26 +101,33 @@ update(TP, Fun) ->
 
 %% gen_server callbacks
 
-init([State]) ->
-    {ok, State}.
+init([UserState, AT]) ->
+    {ok, #state{ at_server = AT, user_state = UserState}}.
 
-handle_call(stop, _From, State) ->
-    {stop, normal, ok, State};
-handle_call({doquery, Fun}, _From, State) ->
-    try Fun(State) of
-	Result -> {reply, {ok, Result}, State}
-    catch
-	_ : _ -> {reply, error, State}
-    end;
-handle_call({update, Fun}, _From, State) ->
-    try Fun(State) of
-	NewState -> {reply, ok, NewState}
-    catch
-	_ : _ -> {reply, error, State}
-    end;
+handle_call(queryall, _From, State) ->
+    {reply, {ok, State#state.user_state}, State};
+
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
+handle_cast({doquery, Fun, Token}, State) ->
+    try Fun(State#state.user_state) of
+        Result -> tell(State#state.at_server, {query_succeeded, Result, Token}),
+                  {noreply, State}
+    catch
+        _ : _ -> tell(State#state.at_server, {query_failed, Token}),
+                 {noreply, State}
+    end;
+    
+handle_cast({update, Fun}, State) ->
+    try Fun(State#state.user_state) of
+        NewUserState -> tell(State#state.at_server, update_succeeded),
+			NewState = State#state{ user_state = NewUserState },
+			{noreply, NewState}
+    catch
+        _ : _ -> tell(State#state.at_server, update_failed),
+                 {noreply, State}
+    end;
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -148,3 +140,8 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+
+%% Utility functions
+
+tell(Recipient, Msg) ->
+    Recipient ! {self(), Msg}.
