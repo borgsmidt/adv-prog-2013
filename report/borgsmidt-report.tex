@@ -374,42 +374,64 @@ DIV=8
 \fontdimen3\font=1.25\fontdimen3\font% interword stretch
 \fontdimen4\font=\fontdimen4\font% interword shrink
 
+\clearpage
 \section*{Introduction}
 \addcontentsline{toc}{section}{Introduction}
 
+This report is part of an answer to the take-home exam of the course {\em
+  Advanced Programming 2013} held at University of Copenhagen, Department of
+Computer Science (\textsmaller{DIKU}).
+
+The intended reader is expected to have knowledge of general computer
+science topics equivalent to a third-year undergraduate student; and in addition
+to have followed this course.
+
+The answer to this exam is submitted electronically, and this report is
+submitted alongside a file archive called {\tt src.zip}; the contents of this
+archive is specified in listing \ref{lst:filetree}.
+
 \section{Salsa Language Parser}
 
-\subsection{Choice of Parser Library}
+In this question, we are asked to implement a parser of the {\scshape Salsa}
+source language, constructing an \ac{AST} in accordance with the data types
+specified in listing \ref{lst:ast}. The parser must be constructed using one of
+three available parser libraries, and I have chosen to use {\tt SimpleParse}
+because it is simple and does what we need (listing \ref{lst:sp}).
 
 \subsection{Grammar Transformations}
 
-Goal: to make the grammar {\regnum LL(1)}.
-
-Emphasis in correctness. Code can be improved for efficiency later. Fx.\ using
-many1 etc.
-
-Assumptions: || is left-associative. The original grammar does not specify this,
-This was chosen because of symmetri with {\tt '@'}.
-
-{\tt '+'} and {\tt '-'} have the same precedence for expressions
-
-As outlined by \citet[p.~69]{mogensen2011}.
-
+The supplied grammar is both ambiguous and left-recursive. But for this
+grammar\footnote{Not every grammar has an equivalent \acs{LL1} grammar} it is
+possible to construct an equivalent \acs{LL1} grammar using the techniques
+outlined by \citet[p.~69]{mogensen2011}:
 \begin{enumerate}
 \item Eliminate ambiguity
 \item Eliminate left-recursion
 \item Perform left-factorization where required
 \end{enumerate}
+There is a number of benefits in doing this. First and foremost, an \acs{LL1}
+grammar makes it a near-mechanical process to construct a parser using {\tt
+  SimpleParse} and this makes it a good choice for emphasizing correctness. The
+parser can be improved for brevity and efficiency later, fx.\ using constructs
+like {\tt many1} and by combining several of the smaller parsers to minimize
+code repetition. Secondly as can be seen from table \ref{grammar}, the resulting
+grammar makes it explicit that {\tt '@'} has higher precedence than {\tt
+  '||'}. In other words, it makes it impossible to derive the wrong parse tree
+from a given input.
 
-Note: And it is only required when several productions {\em for the same
-  nonterminal} begin with the same sequence of symbols; for example, it is not a
-problem that both {\em Pos} and {\em Prim} have a production that begins with
-{\tt '('}, as long as they have only one each.
+As an aside on left-factorization, {\em where required} in item 3 above alludes
+to the fact that it is only necessary to change the grammar in this respect
+where {\em a single nonterminal} has several productions beginning with the same
+sequence of symbols. It is therefore not a problem that both {\em Pos} and {\em
+  Prim} have a production beginning with {\tt '('}.
 
-The resulting grammar makes it explicit that {\tt '@'} has higher precedence
-than {\tt '||'}. In other words, it makes it impossible to derive the wrong
-parse tree from a given input.
+The associativity of {\tt '||'} was not specified by the original grammar, but I
+have chosen it to be left-associative since that seems most logical and is
+symmetric to the associativity of {\tt '@'}. The associavity of {\tt '||'} has
+no impact on the generated output anyway. {\tt '+'} and {\tt '-'} are assumed to
+have equal precedence.
 
+The constructed parser in {\tt SalsaParser.hs} is shown in listing \ref{lst:sp}.
 \begin{table}[h]
   \centering\regnum
   \caption{{\regnum LL(1)} {\scshape Salsa} Grammar}\label{grammar}
@@ -458,23 +480,25 @@ parse tree from a given input.
 \subsection{Testing}
 \label{sec:testing}
 
-Do not want to expose functions from module in order to test. But still come up
-with strategy for somewhat orthogonal testing.
+I wanted to come up with a set of {\em automated tests}\footnote{automated test:
+  test that breaks automatically if there is a problem and requires no manual
+  supervision} that exercise the various parts of the grammar separately without
+having to expose additional functions from the module. The resulting test suite
+is shown in listing \ref{lst:spt} and the session output is shown in listing
+\ref{lst:testoutparser}.
 
 \subsection{Assessment}
 \label{sec:assessment}
 
-I believe this is a complete and correct solution to question 1.
+I believe this is a complete and correct solution to question 1, and I have a
+high degree of confidence in the code. I base this assessment on the fact that
+I was able to obtain an equivalent \acs{LL1} grammar, which makes it
+straightforward to construct a parser, and that I have a reliable test suite to
+exercise the parser.
 
-Allow trailing whitespace
-SIdents and VIdents parsers could be parameterized and combined.
+Furthermore, {\tt ghc -Wall} compiles the code without any warnings.
 
-Comment on that it is particularly tricky to do identifiers separated by space.
-
-extensive test suite
-machine-like translation from grammar
-well-chosen grammar transformations
-
+\clearpage
 \section{Salsa Language Interpreter}
 
 A context comprises an environment and a state; the environment specifies views,
@@ -547,6 +571,13 @@ The direct return value of
 
 \bibliographystyle{plainnat}
 \bibliography{borgsmidt-report}
+
+\addcontentsline{toc}{section}{Acronyms}
+\section*{Acronyms}
+\begin{acronym}[DRY]
+  \acro{AST}[\acrofont{AST}]{Abstract Syntax Tree}
+  \acro{LL1}[\acrofont{{\regnum LL(1)}}]{Left-to-Right, Left-order, $1$-symbol Look-ahead}
+\end{acronym}
 
 \appendix
 
@@ -698,7 +729,7 @@ larry fawn -> +(0, 0 - 300)
 \subsection{Used Hand-outs}
 \label{sec:hand-outs-used}
 
-\shcodefile{src/salsa/SalsaAst.hs}{sa}
+\shcodefile{src/salsa/SalsaAst.hs}{ast}
 \shcodefile{src/salsa/SimpleParse.hs}{sp}
 
 \subsection{Sample Files}
@@ -718,20 +749,148 @@ larry fawn -> +(0, 0 - 300)
 
 \shcodefile{src/salsa/SalsaInterp.hs}{si}
 
-\subsection{Test Code}
-\label{sec:test-2-code}
+\subsection{Test Output}
+\label{sec:test-2-output}
 
-\shcodefile{src/salsa/SalsaInterpTest.hs}{sit}
+\begin{lstlisting}[caption=Test output for manual interpreter testing (pretty printed), label=lst:testoutinterp]
+--
+-- Interpolate tests
+--
+
+   interpolate 1 (0,0) (100,100)
+=> [(100,100)]
+
+   interpolate 2 (0,0) (100,100)
+=> [(50,50),(100,100)]
+
+   interpolate 5 (0,0) (100,100)
+=> [(20,20),(40,40),(60,60),(80,80),(100,100)]
+
+
+--
+-- Testing empty input
+--
+
+   runProg 1 []
+=> ([],[[]])
+
+   runProg 10 []
+=> ([],[[]])
+
+
+--
+-- Testing generation of key frames by using framerate 1
+--
+
+   runProg 1 [ Def (Viewdef "Default" (Const 400) (Const 400)),
+               Def (Rectangle "box" (Const 10) (Const 400) (Const 20)
+                       (Const 20) Green),
+               Com (Move ["box"] (Abs (Const 10) (Const 200))),
+               Com (Move ["box"] (Rel (Const 100) (Const 0))),
+               Com (Move ["box"] (Abs (Const 110) (Const 400))),
+               Com (Move ["box"] (Rel (Minus (Const 0) (Const 100)) (Const 0))) ]
+=> ([("Default",400,400)],
+    [[DrawRect 10 400 20 20 "Default" "green"],
+     [DrawRect 10 200 20 20 "Default" "green"],
+     [DrawRect 110 200 20 20 "Default" "green"],
+     [DrawRect 110 400 20 20 "Default" "green"],
+     [DrawRect 10 400 20 20 "Default" "green"]])
+
+   runProg 1 [ Def (Viewdef "One" (Const 500) (Const 500)),
+               Def (Viewdef "Two" (Const 400) (Const 400)),
+               Def (Group "Both" ["One","Two"]),
+               Def (View "Both"),
+               Def (Rectangle "larry" (Const 10) (Const 350) (Const 20)
+                       (Const 20) Blue),
+               Def (Rectangle "fawn" (Const 300) (Const 350) (Const 15)
+                       (Const 25) Plum),
+               Def (View "Two") ,
+               Com (Par (Move ["larry"] (Abs (Const 300) (Const 350)))
+                       (Move ["fawn"] (Abs (Const 10) (Const 350)))),
+               Def (View "Both"),
+               Com (Move ["larry","fawn"]
+                       (Rel (Const 0) (Minus (Const 0) (Const 300)))) ]
+=> ([("One",500,500),("Two",400,400)],
+    [[DrawRect 300 350 15 25 "One" "plum",
+      DrawRect 300 350 15 25 "Two" "plum",
+      DrawRect 10 350 20 20 "One" "blue",
+      DrawRect 10 350 20 20 "Two" "blue"],
+
+     [DrawRect 10 350 15 25 "Two" "plum",
+      DrawRect 300 350 15 25 "One" "plum",
+      DrawRect 300 350 20 20 "Two" "blue",
+      DrawRect 10 350 20 20 "One" "blue"],
+
+     [DrawRect 300 50 20 20 "Two" "blue",
+      DrawRect 10 50 20 20 "One" "blue",
+      DrawRect 10 50 15 25 "Two" "plum",
+      DrawRect 300 50 15 25 "One" "plum"]])
+
+
+--
+-- Testing full operation with a higher framerate that requires intermediate
+-- frames (highlighted with extra indentation)
+--
+
+   runProg 3 [ Def (Viewdef "One" (Const 500) (Const 500)),
+               Def (Viewdef "Two" (Const 400) (Const 400)),
+               Def (Group "Both" ["One","Two"]),
+               Def (View "Both"),
+               Def (Rectangle "larry" (Const 10) (Const 350) (Const 20)
+                       (Const 20) Blue),
+               Def (Rectangle "fawn" (Const 300) (Const 350) (Const 15)
+                       (Const 25) Plum),
+               Def (View "Two") ,
+               Com (Par (Move ["larry"] (Abs (Const 300) (Const 350)))
+                        (Move ["fawn"] (Abs (Const 10) (Const 350)))),
+               Def (View "Both"),
+               Com (Move ["larry","fawn"]
+                       (Rel (Const 0) (Minus (Const 0) (Const 300)))) ]
+=> ([("One",500,500),("Two",400,400)],
+    [[DrawRect 300 350 15 25 "One" "plum",
+      DrawRect 300 350 15 25 "Two" "plum",
+      DrawRect 10 350 20 20 "One" "blue",
+      DrawRect 10 350 20 20 "Two" "blue"],
+
+         [DrawRect 203 350 15 25 "Two" "plum",
+          DrawRect 300 350 15 25 "One" "plum",
+          DrawRect 107 350 20 20 "Two" "blue",
+          DrawRect 10 350 20 20 "One" "blue"],
+
+         [DrawRect 107 350 15 25 "Two" "plum",
+          DrawRect 300 350 15 25 "One" "plum",
+          DrawRect 203 350 20 20 "Two" "blue",
+          DrawRect 10 350 20 20 "One" "blue"],
+
+     [DrawRect 10 350 15 25 "Two" "plum",
+      DrawRect 300 350 15 25 "One" "plum",
+      DrawRect 300 350 20 20 "Two" "blue",
+      DrawRect 10 350 20 20 "One" "blue"],
+
+         [DrawRect 300 250 20 20 "Two" "blue",
+          DrawRect 10 250 20 20 "One" "blue",
+          DrawRect 10 250 15 25 "Two" "plum",
+          DrawRect 300 250 15 25 "One" "plum"],
+
+         [DrawRect 300 150 20 20 "Two" "blue",
+          DrawRect 10 150 20 20 "One" "blue",
+          DrawRect 10 150 15 25 "Two" "plum",
+          DrawRect 300 150 15 25 "One" "plum"],
+
+     [DrawRect 300 50 20 20 "Two" "blue",
+      DrawRect 10 50 20 20 "One" "blue",
+      DrawRect 10 50 15 25 "Two" "plum",
+      DrawRect 300 50 15 25 "One" "plum"]])
+\end{lstlisting}
 
 \subsection{Used Hand-outs}
 \label{sec:hand-outs-2-used}
 
-See listing \ref{lst:sa}.
+The source language of the interpreter is the same as the target language of the
+parser and is specified in listing \ref{lst:ast}. The target language of the
+interpreter is specified in listing \ref{lst:gpx} below.
 
-\subsection{Sample Files}
-\label{sec:sample-2-files}
-
-See listings \ref{lst:simple} and \ref{lst:multi}.
+\shcodefile{src/salsa/Gpx.hs}{gpx}
 
 \clearpage
 \section{Question 3 Code Files}
@@ -908,10 +1067,26 @@ at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31870> aborted
 at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31880> aborted
 \end{lstlisting}
 
+\clearpage
 \section{Submitted File Tree}
 \label{sec:submitted-files}
 
 \begin{lstlisting}[caption=File tree under {\tt src/}, label=lst:filetree]
-STILL TO DO
+src/
+|-- at_server
+|   |-- at_extapi.erl
+|   |-- at_extapi_tests.erl
+|   |-- at_server.erl
+|   |-- at_server_tests.erl
+|   +-- at_trans.erl
++-- salsa
+    |-- Gpx.hs
+    |-- SalsaAst.hs
+    |-- SalsaInterp.hs
+    |-- SalsaParser.hs
+    |-- SalsaParserTest.hs
+    |-- SimpleParse.hs
+    |-- multi.salsa
+    +-- simple.salsa
 \end{lstlisting}
 \end{document}
