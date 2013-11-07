@@ -334,6 +334,8 @@ DIV=8
 % Get single spacing in listings
 \let\oldlst\lstlisting
 \def\lstlisting{\par\setstretch{0.8}\oldlst}
+\let\oldlstin\lstinputlisting
+\def\lstinputlisting{\par\setstretch{0.8}\oldlstin}
 
 % Use regular - instead of dash in listings
 \makeatletter
@@ -355,21 +357,22 @@ DIV=8
 \subtitle{\rmfamily\mdseries\itshape\normalsize{Advanced Programming 2013}}
 \author{\large Rasmus Borgsmidt}
 \date{}
-\maketitle
+\vspace{-30pt}\maketitle
 \pdfbookmark[1]{\contentsname}{tableofcontents}
-\setcounter{tocdepth}{1} % <-- 2 includes up to subsections in the ToC
+\setcounter{tocdepth}{2} % <-- 2 includes up to subsections in the ToC
 \manualmark
 \vspace{-30pt}\tableofcontents
-\vspace{30pt}
+%\vspace{30pt}
+
+\addcontentsline{toc}{section}{\lstlistlistingname}
+\lstlistoflistings
+
+%\addcontentsline{toc}{section}{Tables}
+\listoftables
 
 \fontdimen2\font=1.25\fontdimen2\font% interword space
 \fontdimen3\font=1.25\fontdimen3\font% interword stretch
 \fontdimen4\font=\fontdimen4\font% interword shrink
-
-\section*{Acronyms}
-\begin{acronym}[DRY]
-  \acro{LALR}[\acrofont{LALR}]{Look-Ahead Left-to-Right}
-\end{acronym}
 
 \section*{Introduction}
 \addcontentsline{toc}{section}{Introduction}
@@ -380,7 +383,7 @@ DIV=8
 
 \subsection{Grammar Transformations}
 
-Goal: to make the grammar LL(1)
+Goal: to make the grammar {\regnum LL(1)}.
 
 Emphasis in correctness. Code can be improved for efficiency later. Fx.\ using
 many1 etc.
@@ -406,6 +409,51 @@ problem that both {\em Pos} and {\em Prim} have a production that begins with
 The resulting grammar makes it explicit that {\tt '@'} has higher precedence
 than {\tt '||'}. In other words, it makes it impossible to derive the wrong
 parse tree from a given input.
+
+\begin{table}[h]
+  \centering\regnum
+  \caption{{\regnum LL(1)} {\scshape Salsa} Grammar}\label{grammar}
+  \begin{tabularx}{\textwidth}{rcX} \toprule
+    {\em Program}    & $::=$ & {\em DefComs}\\
+    {\em DefComs}    & $::=$ & {\em DefCom} {\em DefComs$_{*}$}\\
+    {\em DefComs$_{*}$}   & $::=$ & {\em DefCom} {\em DefComs$_{*}$}\\
+               & $|$   & $\epsilon$\\
+    {\em DefCom}     & $::=$ & {\em Command}\\
+               & $|$   & {\em Definition}\\
+    {\em Definition} & $::=$ & {\tt 'viewdef'} {\em VIdent} {\em Expr} {\em Expr}\\
+               & $|$   & {\tt 'rectangle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
+               & $|$   & {\tt 'circle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
+               & $|$   & {\tt 'view'} {\em VIdent}\\
+               & $|$   & {\tt 'group'} {\em VIdent} {\tt '['} {\em VIdents} {\tt ']'}\\
+    {\em Command}    & $::=$ & {\em Command1} {\em Command$_{*}$}\\
+    {\em Command$_{*}$}    & $::=$ & {\tt '||'} {\em Command1} {\em Command$_{*}$}\\
+               & $|$ & $\epsilon$ \\
+    {\em Command1}    & $::=$ & {\em Command2} {\em Command1$_{*}$}\\
+    {\em Command1$_{*}$}    & $::=$ & {\tt '@'} {\em VIdent} {\em Command1$_{*}$}\\
+               & $|$ & $\epsilon$ \\
+    {\em Command2}    & $::=$ & {\em SIdents} {\tt '->'} {\em Pos}\\
+               & $|$   & {\tt '\{'} {\em Command} {\tt '\}'}\\
+
+    {\em VIdents}    & $::=$ & {\em VIdent} {\em VIdents$_{*}$}\\
+    {\em VIdents$_{*}$}    & $::=$ & {\em VIdent} {\em VIdents$_{*}$}\\
+               & $|$   & $\epsilon$\\
+    {\em SIdents}    & $::=$ & {\em SIdent} {\em SIdents$_{*}$}\\
+    {\em SIdents$_{*}$}    & $::=$ & {\em SIdent} {\em SIdents$_{*}$}\\
+               & $|$   & $\epsilon$\\
+    {\em Pos}        & $::=$ & {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
+               & $|$   & {\tt '+'} {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
+    {\em Expr}       & $::=$ & {\em Prim} {\em Expr$_{*}$}\\
+    {\em Expr$_{*}$}       & $::=$ & {\tt '+'} {\em Prim} {\em Expr$_{*}$}\\
+               & $|$   & {\tt '-'} {\em Prim} {\em Expr$_{*}$}\\
+               & $|$   & $\epsilon$\\
+    {\em Prim}       & $::=$ & {\em integer}\\
+               & $|$   & {\em SIdent} {\tt '.'} {\em Coord}\\
+               & $|$   & {\tt '('} {\em Expr} {\tt ')'}\\
+    {\em Coord}       & $::=$ & {\tt 'x'} $|$ {\tt 'y'}\\
+    {\em Colour}     & $::=$ & {\tt 'blue'} $|$ {\tt 'plum'} $|$ {\tt 'red'} $|$ {\tt 'green'} $|$ {\tt 'orange'}\\
+    \bottomrule
+  \end{tabularx}
+\end{table}
 
 \subsection{Testing}
 \label{sec:testing}
@@ -476,7 +524,7 @@ newtype SalsaCommand a = SalsaCommand { runSC :: Context -> (a, State) }
 Why have I chosen to use OTP?
 Talk about time outs and client-provided query functions
 
-Using a waiting list of clients is safe because query_t is blocking so each
+Using a waiting list of clients is safe because query\_t is blocking so each
 client can appear at most once in the list
 
 clients can build a timeout into the query and update functions
@@ -502,74 +550,368 @@ The direct return value of
 
 \appendix
 
-\section{Salsa Grammar}
+\newcommand{\shcodefile}[2]{%
+\lstinputlisting[basicstyle=\ttfamily\footnotesize, language={},%
+  caption={\tt #1}, label=lst:#2]{../#1}}
 
-\begin{table}[h]
-  \centering\regnum
-  \caption{Syntax of target language}\label{grammar}
-  \begin{tabularx}{\textwidth}{rcX} \toprule
-    {\em Program}    & $::=$ & {\em DefComs}\\
-    {\em DefComs}    & $::=$ & {\em DefCom} {\em DefComs$_{*}$}\\
-    {\em DefComs$_{*}$}   & $::=$ & {\em DefCom} {\em DefComs$_{*}$}\\
-               & $|$   & $\epsilon$\\
-    {\em DefCom}     & $::=$ & {\em Command}\\
-               & $|$   & {\em Definition}\\
-    {\em Definition} & $::=$ & {\tt 'viewdef'} {\em VIdent} {\em Expr} {\em Expr}\\
-               & $|$   & {\tt 'rectangle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
-               & $|$   & {\tt 'circle'} {\em SIdent} {\em Expr} {\em Expr} {\em Expr} {\em Colour}\\
-               & $|$   & {\tt 'view'} {\em VIdent}\\
-               & $|$   & {\tt 'group'} {\em VIdent} {\tt '['} {\em VIdents} {\tt ']'}\\
-    {\em Command}    & $::=$ & {\em Command1} {\em Command$_{*}$}\\
-    {\em Command$_{*}$}    & $::=$ & {\tt '||'} {\em Command1} {\em Command$_{*}$}\\
-               & $|$ & $\epsilon$ \\
-    {\em Command1}    & $::=$ & {\em Command2} {\em Command1$_{*}$}\\
-    {\em Command1$_{*}$}    & $::=$ & {\tt '@'} {\em VIdent} {\em Command1$_{*}$}\\
-               & $|$ & $\epsilon$ \\
-    {\em Command2}    & $::=$ & {\em SIdents} {\tt '->'} {\em Pos}\\
-               & $|$   & {\tt '\{'} {\em Command} {\tt '\}'}\\
+\clearpage
+\section{Question 1 Code Files}
+\label{sec:question-1-code}
 
-    {\em VIdents}    & $::=$ & {\em VIdent} {\em VIdents$_{*}$}\\
-    {\em VIdents$_{*}$}    & $::=$ & {\em VIdent} {\em VIdents$_{*}$}\\
-               & $|$   & $\epsilon$\\
-    {\em SIdents}    & $::=$ & {\em SIdent} {\em SIdents$_{*}$}\\
-    {\em SIdents$_{*}$}    & $::=$ & {\em SIdent} {\em SIdents$_{*}$}\\
-               & $|$   & $\epsilon$\\
-    {\em Pos}        & $::=$ & {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
-               & $|$   & {\tt '+'} {\tt '('} {\em Expr} {\tt ','} {\em Expr} {\tt ')'}\\
-    {\em Expr}       & $::=$ & {\em Prim} {\em Expr$_{*}$}\\
-    {\em Expr$_{*}$}       & $::=$ & {\tt '+'} {\em Prim} {\em Expr$_{*}$}\\
-               & $|$   & {\tt '-'} {\em Prim} {\em Expr$_{*}$}\\
-               & $|$   & $\epsilon$\\
-    {\em Prim}       & $::=$ & {\em integer}\\
-               & $|$   & {\em SIdent} {\tt '.'} {\em Coord}\\
-               & $|$   & {\tt '('} {\em Expr} {\tt ')'}\\
-    {\em Coord}       & $::=$ & {\tt 'x'} $|$ {\tt 'y'}\\
-    {\em Colour}     & $::=$ & {\tt 'blue'} $|$ {\tt 'plum'} $|$ {\tt 'red'} $|$ {\tt 'green'} $|$ {\tt 'orange'}\\
-    \bottomrule
-  \end{tabularx}
-\end{table}
+\subsection{Source Code}
+\label{sec:source-code}
 
-\section{Lexical Specification}
+\shcodefile{src/salsa/SalsaParser.hs}{sphs}
 
-\section{Submitted Files}
-\label{sec:submitted-files}
+\subsection{Test Code}
+\label{sec:test-code}
 
-Sample programs; example \ref{lst:compsample} shows how to compile and
-run a sample program.
+\shcodefile{src/salsa/SalsaParserTest.hs}{spt}
 
-\begin{lstlisting}[caption=File tree under {\tt src/}, label=lst:filetree]
-.
-|-- examples
-|   |-- id.class
-|   |-- id.ial
-|   |-- id.java
-|   |-- id2.class
-|   |-- id2.ial
-|   |-- id2.java
-|   |-- optimized.ial
-|   |-- optimized.java
-|   |-- plus.class
-|   |-- plus.ial
+\subsection{Test Output}
+\label{sec:test-output}
+
+\begin{lstlisting}[caption=Session output: {\tt src/salsa/SalsaParserTest}, label=lst:testoutparser]
+*** Checking Colour ***
+pass: circle c 0 0 0 blue
+pass: circle c 0 0 0 plum
+pass: circle c 0 0 0 red
+pass: circle c 0 0 0 green
+pass: circle c 0 0 0 orange
+error (expected): circle c 0 0 0 violet
+error (expected): circle c 0 0 0 greeen
+error (expected): circle c 0 0 0 Blue
+error (expected): circle c 0 0 0 blue1
+
+*** Checking Prim ***
+pass: a -> (0, 0)
+pass: a -> (42, 42)
+pass: a -> (999999999, 999999999)
+pass: a -> ((((42))), (((42))))
+pass: a -> (john . x, john . x)
+pass: a -> (john . y, john . y)
+error (expected): a -> (-5, -5)
+error (expected): a -> (-5, -5)
+error (expected): a -> (42.2, 42.2)
+error (expected): a -> (.8, .8)
+
+*** Checking Expr ***
+pass: a -> (1 + 2, 1 + 2)
+pass: a -> (1 - 2, 1 - 2)
+pass: a -> (1 + 2 + 3, 1 + 2 + 3)
+pass: a -> (1 - 2 - 3, 1 - 2 - 3)
+pass: a -> (1 + 2 - 3, 1 + 2 - 3)
+pass: a -> (1 - 2 + 3, 1 - 2 + 3)
+
+*** Checking Pos ***
+pass: a -> (0, 0)
+pass: a -> + (0, 0)
+
+*** Checking SIdents ***
+pass: a -> (0, 0)
+pass: aBC -> (0, 0)
+pass: a12T -> (0, 0)
+pass: aa bb cc -> (0, 0)
+error (expected): 1abc -> (0, 0)
+error (expected): Abc -> (0, 0)
+error (expected): _abc -> (0, 0)
+error (expected): _ -> (0, 0)
+error (expected): viewdef -> (0, 0)
+error (expected): rectangle -> (0, 0)
+error (expected): circle -> (0, 0)
+error (expected): view -> (0, 0)
+error (expected): group -> (0, 0)
+error (expected): blue -> (0, 0)
+error (expected): plum -> (0, 0)
+error (expected): red -> (0, 0)
+error (expected): green -> (0, 0)
+error (expected): orange -> (0, 0)
+
+*** Checking VIdents ***
+pass: group V [A]
+pass: group V [Abc]
+pass: group V [A12t]
+pass: group V [AA BB CC]
+error (expected): group V [1Abc]
+error (expected): group V [aBC]
+error (expected): group V [_ABC]
+error (expected): group V [_]
+
+*** Checking Command ***
+pass: a->(0, 0)
+pass: a->(0, 0)@V
+pass: a->(0, 0)@V@W
+pass: a->(0, 0)||b->(0, 0)
+pass: a->(0, 0)||b->(0, 0)||c->(0,0)
+pass: a->(0, 0)||b->(0, 0)@V
+pass: {a->(0, 0)||b->(0, 0)}@V
+pass: {{{a->(0, 0)}}}
+
+*** Checking Definition ***
+pass: viewdef V 0 0
+pass: rectangle r 0 0 0 0 blue
+pass: circle c 0 0 0 blue
+pass: view V
+pass: group G [X Y Z]
+error (expected): view1 V
+
+*** Checking Program ***
+error (expected): <empty string>
+pass: viewdef Default 400 400
+rectangle box 10 400 20 20 green
+box -> (10, 200)
+box -> +(100, 0)
+box -> (110,400)
+box -> +(0-100, 0)
+
+pass: viewdef One 500 500
+viewdef Two 400 400
+group Both [One Two]
+view Both
+rectangle larry 10 350 20 20 blue
+rectangle fawn 300 350 15 25 plum
+
+view Two
+larry -> (300, 350) || fawn -> (10,350)
+
+view Both
+larry fawn -> +(0, 0 - 300)
+
+*** Checking parseFile ***
+pass: viewdef One 500 500
+viewdef Two 400 400
+group Both [One Two]
+view Both
+rectangle larry 10 350 20 20 blue
+rectangle fawn 300 350 15 25 plum
+
+view Two
+larry -> (300, 350) || fawn -> (10,350)
+
+view Both
+larry fawn -> +(0, 0 - 300)
+
+*** All tests completed successfully ***
 \end{lstlisting}
 
+
+\subsection{Used Hand-outs}
+\label{sec:hand-outs-used}
+
+\shcodefile{src/salsa/SalsaAst.hs}{sa}
+\shcodefile{src/salsa/SimpleParse.hs}{sp}
+
+\subsection{Sample Files}
+\label{sec:sample-files}
+
+\shcodefile{src/salsa/simple.salsa}{simple}
+
+\shcodefile{src/salsa/multi.salsa}{multi}
+
+
+\clearpage
+\section{Question 2 Code Files}
+\label{sec:question-2-code}
+
+\subsection{Source Code}
+\label{sec:source-2-code}
+
+\shcodefile{src/salsa/SalsaInterp.hs}{si}
+
+\subsection{Test Code}
+\label{sec:test-2-code}
+
+\shcodefile{src/salsa/SalsaInterpTest.hs}{sit}
+
+\subsection{Used Hand-outs}
+\label{sec:hand-outs-2-used}
+
+See listing \ref{lst:sa}.
+
+\subsection{Sample Files}
+\label{sec:sample-2-files}
+
+See listings \ref{lst:simple} and \ref{lst:multi}.
+
+\clearpage
+\section{Question 3 Code Files}
+\label{sec:question-3-code}
+
+\subsection{Source Code}
+\label{sec:source-3-code}
+
+\lstinputlisting[basicstyle=\ttfamily\footnotesize, language={},%
+  caption={\tt src/at\_server/at\_server.erl}, label=lst:ats]{../src/at_server/at_server.erl}
+
+\lstinputlisting[basicstyle=\ttfamily\footnotesize, language={},%
+  caption={\tt src/at\_server/at\_trans.erl}, label=lst:att]{../src/at_server/at_trans.erl}
+
+\lstinputlisting[basicstyle=\ttfamily\footnotesize, language={},%
+  caption={\tt src/at\_server/at\_extapi.erl}, label=lst:ate]{../src/at_server/at_extapi.erl}
+
+\subsection{Test Code}
+\label{sec:test-3-code}
+
+\lstinputlisting[basicstyle=\ttfamily\footnotesize, language={},%
+  caption={\tt src/at\_server/at\_server\_tests.erl}, label=lst:atst]{../src/at_server/at_server_tests.erl}
+
+\lstinputlisting[basicstyle=\ttfamily\footnotesize, language={},%
+  caption={\tt src/at\_server/at\_extapi\_tests.erl}, label=lst:atet]{../src/at_server/at_extapi_tests.erl}
+
+\subsection{Test Output}
+\label{sec:test-3-output}
+
+\begin{lstlisting}[caption=Session output: {\tt src/at\_server/at\_server\_tests.erl}, label=lst:testoutserver]
+> eunit:test(at_server, [verbose]).
+======================== EUnit ========================
+module 'at_server'
+  module 'at_server_tests'
+    at_server_tests: commit_t_competing_test...[0.007 s] ok
+    at_server_tests: commit_t_abort_longrunning_test...[0.051 s] ok
+    at_server_tests: commit_t_success_test...ok
+    at_server_tests: update_t_failure_test...ok
+    at_server_tests: update_t_success_test...ok
+    at_server_tests: query_t_failure_test...ok
+    at_server_tests: begin_t_test...ok
+    at_server_tests: query_t_success_test...ok
+    at_server_tests: doquery_failure_test...ok
+    at_server_tests: doquery_success_test...ok
+    [done in 0.087 s]
+  [done in 0.087 s]
+=======================================================
+  All 10 tests passed.
+ok
+\end{lstlisting}
+
+\begin{lstlisting}[caption=Session output: {\tt src/at\_server/at\_extapi\_tests.erl}, label=lst:testoutextapi]
+> eunit:test(at_extapi, [verbose]).
+======================== EUnit ========================
+module 'at_extapi'
+  module 'at_extapi_tests'
+    at_extapi_tests: choice_update_test...[0.001 s] ok
+    at_extapi_tests: ensure_update_ok_test...ok
+    at_extapi_tests: ensure_update_retry_test...[0.202 s] ok
+    at_extapi_tests: ensure_update_error_test...ok
+    at_extapi_tests: try_update_error_test...ok
+    at_extapi_tests: try_update_aborted_test...[0.101 s] ok
+    at_extapi_tests: try_update_ok_test...[0.001 s] ok
+    at_extapi_tests: abort_test...ok
+    [done in 0.328 s]
+  [done in 0.328 s]
+=======================================================
+  All 8 tests passed.
+ok
+\end{lstlisting}
+
+\begin{lstlisting}[caption=Session output: {\tt
+    commit\_t\_competing\_test()} (debug enabled),
+  label=lst:testoutextapi, basicstyle=\ttfamily\scriptsize]
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31695> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31699> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31704> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31714> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31719> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31723> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31728> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31732> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31736> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31740> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31744> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31748> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31758> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31762> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31768> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31772> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31776> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31780> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31784> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31788> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31790> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31792> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31794> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31796> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31800> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31806> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31810> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31814> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31818> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31822> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31826> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31830> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31832> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31834> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31836> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31840> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31844> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31848> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31852> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31856> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31860> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31864> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31868> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31872> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31874> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31876> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31878> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31882> aborted
+at_server_tests.erl:154:<0.3764.0>: ----> Transaction #Ref<0.0.0.31680> committed
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31682> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31684> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31686> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31688> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31691> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31693> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31697> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31701> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31706> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31708> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31710> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31712> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31717> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31721> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31725> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31730> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31734> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31738> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31742> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31746> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31750> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31752> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31754> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31756> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31760> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31764> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31766> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31770> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31774> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31778> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31782> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31786> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31798> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31802> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31804> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31808> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31812> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31816> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31820> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31824> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31828> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31838> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31842> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31846> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31850> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31854> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31858> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31862> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31866> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31870> aborted
+at_server_tests.erl:151:<0.3764.0>: Transaction #Ref<0.0.0.31880> aborted
+\end{lstlisting}
+
+\section{Submitted File Tree}
+\label{sec:submitted-files}
+
+\begin{lstlisting}[caption=File tree under {\tt src/}, label=lst:filetree]
+STILL TO DO
+\end{lstlisting}
 \end{document}

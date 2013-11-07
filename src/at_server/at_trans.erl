@@ -126,8 +126,8 @@ handle_cast({doquery, Fun, Token}, State) ->
 handle_cast({update, Fun}, State) ->
     try Fun(State#state.user_state) of
         NewUserState -> tell(State#state.at_server, update_succeeded),
-			NewState = State#state{ user_state = NewUserState },
-			{noreply, NewState}
+                        NewState = State#state{ user_state = NewUserState },
+                        {noreply, NewState}
     catch
         _ : _ -> tell(State#state.at_server, update_failed),
                  {noreply, State}

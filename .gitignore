@@ -9,6 +9,8 @@ cabal-dev
 *.bbl
 *.blg
 *.log
+*.lol
+*.lot
 *.out
 *.toc
 *~

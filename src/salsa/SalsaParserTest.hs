@@ -1,13 +1,12 @@
 import Control.Exception (assert)
 import SalsaParser
 import SalsaAst
---import System.IO
 
--- passes a string and compares the AST to an expected program
+-- parses a string and compares the AST to an expected program
 run :: String -> Program -> String
 run s p = assert (Right p == parseString s) (shw "pass" s)
 
--- passes a string and checks that an error occurs
+-- parses a string and checks that an error occurs
 err :: String -> Program -> String
 err s _ = assert (isError $ parseString s) (shw "error (expected)" s)
 
@@ -48,10 +47,14 @@ main = do putStrLn "\n*** Checking Colour ***"
           putStrLn "\n*** Checking Expr ***"
           putStrLn $ checkExpr run "1 + 2" (Plus (Const 1) (Const 2))
           putStrLn $ checkExpr run "1 - 2" (Minus (Const 1) (Const 2))
-          putStrLn $ checkExpr run "1 + 2 + 3" (Plus (Plus (Const 1) (Const 2)) (Const 3))
-          putStrLn $ checkExpr run "1 - 2 - 3" (Minus (Minus (Const 1) (Const 2)) (Const 3))
-          putStrLn $ checkExpr run "1 + 2 - 3" (Minus (Plus (Const 1) (Const 2)) (Const 3))
-          putStrLn $ checkExpr run "1 - 2 + 3" (Plus (Minus (Const 1) (Const 2)) (Const 3))
+          putStrLn $ checkExpr run "1 + 2 + 3"
+                       (Plus (Plus (Const 1) (Const 2)) (Const 3))
+          putStrLn $ checkExpr run "1 - 2 - 3"
+                       (Minus (Minus (Const 1) (Const 2)) (Const 3))
+          putStrLn $ checkExpr run "1 + 2 - 3"
+                       (Minus (Plus (Const 1) (Const 2)) (Const 3))
+          putStrLn $ checkExpr run "1 - 2 + 3"
+                       (Plus (Minus (Const 1) (Const 2)) (Const 3))
 
           putStrLn "\n*** Checking Pos ***"
           putStrLn $ checkPos run "(0, 0)" (Abs (Const 0) (Const 0))
@@ -79,24 +82,34 @@ main = do putStrLn "\n*** Checking Colour ***"
           putStrLn $ checkVIdents err "_" []
 
           putStrLn "\n*** Checking Command ***"
-          putStrLn $ checkCommand run "a->(0, 0)" (Move ["a"] (Abs (Const 0) (Const 0)))
-          putStrLn $ checkCommand run "a->(0, 0)@V" (At (Move ["a"] (Abs (Const 0) (Const 0))) "V")
-          putStrLn $ checkCommand run "a->(0, 0)@V@W" (At (At (Move ["a"] (Abs (Const 0) (Const 0))) "V") "W")
-          putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)" (Par (Move ["a"] (Abs (Const 0) (Const 0)))
-                                                                  (Move ["b"] (Abs (Const 0) (Const 0))))
-          putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)||c->(0,0)" (Par (Par (Move ["a"] (Abs (Const 0) (Const 0)))
-                                                                                 (Move ["b"] (Abs (Const 0) (Const 0))))
-                                                                            (Move ["c"] (Abs (Const 0) (Const 0))))
-          putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)@V" (Par (Move ["a"] (Abs (Const 0) (Const 0)))
-                                                                    (At (Move ["b"] (Abs (Const 0) (Const 0))) "V"))
-          putStrLn $ checkCommand run "{a->(0, 0)||b->(0, 0)}@V" (At (Par (Move ["a"] (Abs (Const 0) (Const 0)))
-                                                                          (Move ["b"] (Abs (Const 0) (Const 0)))) "V")
-          putStrLn $ checkCommand run "{{{a->(0, 0)}}}" (Move ["a"] (Abs (Const 0) (Const 0)))
+          putStrLn $ checkCommand run "a->(0, 0)"
+                       (Move ["a"] (Abs (Const 0) (Const 0)))
+          putStrLn $ checkCommand run "a->(0, 0)@V"
+                       (At (Move ["a"] (Abs (Const 0) (Const 0))) "V")
+          putStrLn $ checkCommand run "a->(0, 0)@V@W"
+                       (At (At (Move ["a"] (Abs (Const 0) (Const 0))) "V") "W")
+          putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)"
+                       (Par (Move ["a"] (Abs (Const 0) (Const 0)))
+                                (Move ["b"] (Abs (Const 0) (Const 0))))
+          putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)||c->(0,0)"
+                       (Par (Par (Move ["a"] (Abs (Const 0) (Const 0)))
+                                     (Move ["b"] (Abs (Const 0) (Const 0))))
+                        (Move ["c"] (Abs (Const 0) (Const 0))))
+          putStrLn $ checkCommand run "a->(0, 0)||b->(0, 0)@V"
+                       (Par (Move ["a"] (Abs (Const 0) (Const 0)))
+                                (At (Move ["b"] (Abs (Const 0) (Const 0))) "V"))
+          putStrLn $ checkCommand run "{a->(0, 0)||b->(0, 0)}@V"
+                       (At (Par (Move ["a"] (Abs (Const 0) (Const 0)))
+                                    (Move ["b"] (Abs (Const 0) (Const 0)))) "V")
+          putStrLn $ checkCommand run "{{{a->(0, 0)}}}"
+                       (Move ["a"] (Abs (Const 0) (Const 0)))
 
           putStrLn "\n*** Checking Definition ***"
           putStrLn $ checkDefinition run "viewdef V 0 0" (Viewdef "V" (Const 0) (Const 0))
-          putStrLn $ checkDefinition run "rectangle r 0 0 0 0 blue" (Rectangle "r" (Const 0) (Const 0) (Const 0) (Const 0) Blue)
-          putStrLn $ checkDefinition run "circle c 0 0 0 blue" (Circle "c" (Const 0) (Const 0) (Const 0) Blue)
+          putStrLn $ checkDefinition run "rectangle r 0 0 0 0 blue"
+                       (Rectangle "r" (Const 0) (Const 0) (Const 0) (Const 0) Blue)
+          putStrLn $ checkDefinition run "circle c 0 0 0 blue"
+                       (Circle "c" (Const 0) (Const 0) (Const 0) Blue)
           putStrLn $ checkDefinition run "view V" (View "V")
           putStrLn $ checkDefinition run "group G [X Y Z]" (Group "G" ["X", "Y", "Z"])
           putStrLn $ checkDefinition err "view1 V" (View "V")
@@ -168,10 +181,12 @@ main = do putStrLn "\n*** Checking Colour ***"
   
 
     where
-      checkCol f s c = f ("circle c 0 0 0 " ++ s) [Def (Circle "c" (Const 0) (Const 0) (Const 0) c)]
+      checkCol f s c = f ("circle c 0 0 0 " ++ s)
+                       [Def (Circle "c" (Const 0) (Const 0) (Const 0) c)]
       checkExpr f s e = f ("a -> (" ++ s ++ ", " ++ s ++ ")") [Com (Move ["a"] (Abs e e))]
       checkPos f s p = f ("a -> " ++ s) [Com (Move ["a"] p)]
-      checkSIdents f s ids = f (s ++ " -> (0, 0)") [Com (Move ids (Abs (Const 0) (Const 0)))]
+      checkSIdents f s ids = f (s ++ " -> (0, 0)")
+                             [Com (Move ids (Abs (Const 0) (Const 0)))]
       checkVIdents f s ids = f ("group V [" ++ s ++ "]") [Def (Group "V" ids)]
       checkCommand f s c = f s [Com c]
       checkDefinition f s d = f s [Def d]

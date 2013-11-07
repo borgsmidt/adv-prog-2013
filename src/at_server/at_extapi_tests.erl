@@ -27,13 +27,13 @@ try_update_aborted_test() ->
     ok = at_server:update_t(AT, TP, fun reverse/1),
     EUnitPid = self(),
     spawn(fun() -> EUnitPid ! at_extapi:tryUpdate(AT, fun(S) -> timer:sleep(100),
-								lists:reverse(S)
-						      end)
-	  end),
+                                                                lists:reverse(S)
+                                                      end)
+          end),
     timer:sleep(50),
     ok = at_server:commit_t(AT, TP),
     receive
-	Msg -> ?assertEqual(aborted, Msg)
+        Msg -> ?assertEqual(aborted, Msg)
     end,
     stop(AT, ?REV_STATE),
     [].
@@ -62,21 +62,21 @@ ensure_update_retry_test() ->
     ok = at_server:update_t(AT, TP, fun reverse/1),
     EUnitPid = self(),
     spawn(fun() -> EUnitPid ! at_extapi:ensureUpdate(AT, fun(S) -> timer:sleep(100),
-								   lists:reverse(S)
-							 end)
-	  end),
+                                                                   lists:reverse(S)
+                                                         end)
+          end),
     timer:sleep(50),
     ok = at_server:commit_t(AT, TP),
     receive
-	Msg -> ?assertEqual(ok, Msg)
+        Msg -> ?assertEqual(ok, Msg)
     end,
     stop(AT, ?STATE),
     [].
 
 choice_update_test() ->
     AT = start(),
-    {ok, State} = at_extapi:choiceUpdate(AT, fun(S, V) -> lists:map(fun(A) -> A+V end, S) end,
-					 [2,3,5,7,11,13]),
+    {ok, State} = at_extapi:choiceUpdate(AT, fun(S, V) ->
+                      lists:map(fun(A) -> A+V end, S) end, [2,3,5,7,11,13]),
     stop(AT, State),
     [].
 

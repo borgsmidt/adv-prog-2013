@@ -145,7 +145,8 @@ shapesToMove idents context =
         active = activeShapes context
     in if null $ moving \\ active
        then moving
-       else error $ "shapes not defined on all active views: " ++ show idents ++ "\ncontext: " ++ show context
+       else error $ "shapes not defined on all active views: " ++ show idents
+                ++ "\ncontext: " ++ show context
 
 -- Helper function that returns the position of a given shape on a given view
 shapeViewPos :: Shape -> ViewT -> Context -> Position
@@ -205,7 +206,8 @@ stripFrame pairs = snd $ unzip pairs
 moveShapes :: [Ident] -> Pos -> Context -> State
 moveShapes idents pos context =
     let moving = shapesToMove idents context
-        -- 'neutral' map with full set of combinations to draw everything in its current position
+        -- 'neutral' map with full set of combinations to draw everything in its
+        -- current position
         wmap = M.fromList [((s, v), (shapeViewPos s v context, Nothing)) |
                             s <- M.elems (shapes context), v <- vs s]
         -- list of shapes to move, used to overwrite entries in the map
@@ -219,7 +221,8 @@ moveShapes idents pos context =
 
 -- Helper function that updates a frame set with instructions for a
 -- particular shape and view
-writeToFrameSet :: Context -> FrameSet -> ((Shape, ViewT), (Position, Maybe Pos)) -> FrameSet
+writeToFrameSet :: Context -> FrameSet -> ((Shape, ViewT), (Position, Maybe Pos))
+                -> FrameSet
 writeToFrameSet context fs ((shape, view), (fromPos, p)) =
     let toPos = getToPos context fromPos p
         -- the frames in a frame set is stored in reverse order so the key frame
@@ -321,7 +324,8 @@ command (Move idents pos) =
 -- Helper function that captures the effect of running to commands in parallel
 mergeConcurrent :: Command -> Command -> a -> SalsaCommand a
 mergeConcurrent com0 com1 x =
-    SalsaCommand $ \context -> (x, updateFrameSets (mergeFrameSets com0 com1) $ state context)
+    SalsaCommand $ \context ->
+        (x, updateFrameSets (mergeFrameSets com0 com1) $ state context)
 
 -- Helper function that merges the two latest frame sets. This is necessary when
 -- commands should run in parallel and therefore manipulate the same frame set

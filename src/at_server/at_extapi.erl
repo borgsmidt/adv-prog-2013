@@ -45,15 +45,15 @@ abort(AT, Ref) ->
 tryUpdate(AT, Fun) ->
     {ok, TRef} = at_server:begin_t(AT),
     case at_server:query_t(AT, TRef, fun(S) -> S end) of
-	aborted -> aborted;
-	{ok, State} ->
-	    try Fun(State) of
-	        NewState ->
-		    ok = at_server:update_t(AT, TRef, fun(_) -> NewState end),
-		    at_server:commit_t(AT, TRef)
-	    catch
-		_ : _ -> error
-	    end
+        aborted -> aborted;
+        {ok, State} ->
+            try Fun(State) of
+                NewState ->
+                    ok = at_server:update_t(AT, TRef, fun(_) -> NewState end),
+                    at_server:commit_t(AT, TRef)
+            catch
+                _ : _ -> error
+            end
     end.
 
 %%--------------------------------------------------------------------
@@ -72,10 +72,10 @@ tryUpdate(AT, Fun) ->
 %%--------------------------------------------------------------------
 ensureUpdate(AT, Fun) ->
     case tryUpdate(AT, Fun) of
-	aborted -> ensureUpdate(AT, Fun);
-	Result -> Result
+        aborted -> ensureUpdate(AT, Fun);
+        Result -> Result
     end.
-	    
+            
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -98,27 +98,27 @@ ensureUpdate(AT, Fun) ->
 choiceUpdate(AT, Fun, Values) ->
     ThisPid = self(),
     lists:map(fun(V) ->
-		  % Create a transaction for each value in Values
+                  % Create a transaction for each value in Values
                   spawn(fun() ->
-		      {ok, TP} = at_server:begin_t(AT),
-	              ok = at_server:update_t(AT, TP, fun(S) -> Fun(S, V) end),
-	              % Must query from the transaction itself to be sure that the
+                      {ok, TP} = at_server:begin_t(AT),
+                      ok = at_server:update_t(AT, TP, fun(S) -> Fun(S, V) end),
+                      % Must query from the transaction itself to be sure that the
                       % result is in fact what was committed, should this transaction
-		      % succeed. Just reading from the server after a successful commit
+                      % succeed. Just reading from the server after a successful commit
                       % is not reliable, someone else could have begun/updated/committed
-		      % a transaction in the meantime
-		      case at_server:query_t(AT, TP, fun(S) -> S end) of
-			  % The query will fail if other transactions have been committed
-			  aborted -> ThisPid ! {TP, aborted};
-			  {ok, Result} ->
-			      case at_server:commit_t(AT, TP) of
-				  aborted -> ThisPid ! {TP, aborted};
-				  ok -> ThisPid ! {TP, ok, Result}
-			      end
-		      end
-  	          end)
-	      end,
-	      Values),
+                      % a transaction in the meantime
+                      case at_server:query_t(AT, TP, fun(S) -> S end) of
+                          % The query will fail if other transactions have been committed
+                          aborted -> ThisPid ! {TP, aborted};
+                          {ok, Result} ->
+                              case at_server:commit_t(AT, TP) of
+                                  aborted -> ThisPid ! {TP, aborted};
+                                  ok -> ThisPid ! {TP, ok, Result}
+                              end
+                      end
+                  end)
+              end,
+              Values),
     receive_one_ok_of(length(Values), false, result).
     
 
@@ -134,11 +134,11 @@ receive_one_ok_of(0, false, _) ->
     error;
 receive_one_ok_of(StillToGo, GotOK, Result) ->
     receive
-	{_TP, aborted} ->
-	    receive_one_ok_of(StillToGo-1, GotOK, Result);
-	{_TP, ok, NewResult} ->
-	    case GotOK of
-		true -> error; % Multiple OKs
-		false -> receive_one_ok_of(StillToGo-1, true, NewResult)
-	    end
+        {_TP, aborted} ->
+            receive_one_ok_of(StillToGo-1, GotOK, Result);
+        {_TP, ok, NewResult} ->
+            case GotOK of
+                true -> error; % Multiple OKs
+                false -> receive_one_ok_of(StillToGo-1, true, NewResult)
+            end
     end.

@@ -230,13 +230,13 @@ handle_cast(_Msg, State) ->
 
 handle_info({TPid, {query_succeeded, Result, Client}}, State) ->
     case find_trans_pid(TPid, State) of
-	undefined ->
-	    % The query succeeded but the transaction was aborted in the meantime
-	    NewState = reply_client(Client, aborted, State),
-	    {noreply, NewState};
-	_ ->
-	    NewState = reply_client(Client, {ok, Result}, State),
-	    {noreply, NewState}
+        undefined ->
+            % The query succeeded but the transaction was aborted in the meantime
+            NewState = reply_client(Client, aborted, State),
+            {noreply, NewState};
+        _ ->
+            NewState = reply_client(Client, {ok, Result}, State),
+            {noreply, NewState}
     end;
 
 handle_info({TPid, {query_failed, Client}}, State) ->

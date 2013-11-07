@@ -96,17 +96,17 @@ commit_t_competing_test() ->
     AT = start(),
     TransCount = 100,
     TPs = lists:map(fun(_) -> {ok, TP} = at_server:begin_t(AT), TP end,
-		    lists:seq(1, TransCount)),
+                    lists:seq(1, TransCount)),
     lists:map(fun(TP) -> ok = at_server:update_t(AT, TP, fun reverse/1) end, TPs),
     lists:map(fun(TP) -> {ok, ?REV_STATE} = at_server:query_t(AT, TP, fun id/1) end, TPs),
     EUnitPid = self(),
     % Attempt to commit all transactions 'simultaneously'
     lists:map(fun(TP) -> spawn(fun() -> case at_server:commit_t(AT, TP) of
-					    aborted -> EUnitPid ! {TP, aborted};
-					    ok -> EUnitPid ! {TP, ok}
-					end
-			       end)
-	      end, TPs),
+                                            aborted -> EUnitPid ! {TP, aborted};
+                                            ok -> EUnitPid ! {TP, ok}
+                                        end
+                               end)
+              end, TPs),
     % Depending on how many transactions are used in this test, the following
     % call to doquery is allowed to complete with the soon-to-be outdated
     % state. This is correct behavior, when no transaction has been fully
@@ -149,13 +149,13 @@ receive_one_ok_of(0, false) ->
     error;
 receive_one_ok_of(StillToGo, GotOK) ->
     receive
-	{_TP, aborted} ->
-	    %?debugFmt("Transaction ~p aborted", [TP]),
-	    receive_one_ok_of(StillToGo-1, GotOK);
-	{_TP, ok} ->
-	    %?debugFmt("----> Transaction ~p committed", [TP]),
-	    case GotOK of
-		true -> error; % Multiple OKs
-		false -> receive_one_ok_of(StillToGo-1, true)
-	    end
+        {_TP, aborted} ->
+            %?debugFmt("Transaction ~p aborted", [TP]),
+            receive_one_ok_of(StillToGo-1, GotOK);
+        {_TP, ok} ->
+            %?debugFmt("----> Transaction ~p committed", [TP]),
+            case GotOK of
+                true -> error; % Multiple OKs
+                false -> receive_one_ok_of(StillToGo-1, true)
+            end
     end.
